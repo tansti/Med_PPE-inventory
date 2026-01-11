@@ -132,21 +132,27 @@
             </div>
         </section>
 
-       <!-- In your HTML file, update the table header section -->
-<section class="card">
+       <section class="card">
+  <div class="card-header-flex">
     <h2>📦 Current Stock</h2>
-    <div class="table-scroll no-scroll">
-        <table id="inventoryTable">
-            <thead>
-                <tr>
-                    <th style="width: 60%; text-align: left;">DESCRIPTION</th>
-                    <th style="width: 20%; text-align: center;">LEVEL</th>
-                    <th class="admin-only" style="width: 20%; text-align: center;">ACTIONS</th>
-                </tr>
-            </thead>
-            <tbody id="inventoryBody"></tbody>
-        </table>
+    <div class="admin-only" style="display: flex; gap: 10px;">
+      <button id="filterAllBtn" class="btn-success" style="padding: 10px 15px;">All Items</button>
+      <button id="filterMedkitBtn" class="btn-primary" style="padding: 10px 15px;">Medkit Only</button>
+      <button id="filterPPEBtn" class="btn-primary" style="padding: 10px 15px;">PPE Only</button>
     </div>
+  </div>
+  <div class="table-scroll no-scroll">
+    <table id="inventoryTable">
+      <thead>
+        <tr>
+          <th style="width: 60%; text-align: left;">DESCRIPTION</th>
+          <th style="width: 20%; text-align: center;">LEVEL</th>
+          <th class="admin-only" style="width: 20%; text-align: center;">ACTIONS</th>
+        </tr>
+      </thead>
+      <tbody id="inventoryBody"></tbody>
+    </table>
+  </div>
 </section>
 
         <section class="card admin-only">
