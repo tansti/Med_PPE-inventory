@@ -640,3 +640,30 @@ body.mode-ppe:not(.is-admin) option.cat-medkit { display: none; }
 
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(0, 0, 0, 0.3);
+
+  /* ================= STOCK FILTER BUTTONS ================= */
+.btn-filter {
+  background: rgba(255, 255, 255, 0.3);
+  color: var(--text-main);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 10px 20px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.btn-filter:hover {
+  background: rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
+}
+
+.btn-filter.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+}
+  
+  
+  
+  
+  
