@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MedKit and PPE | Inventory System</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <nav class="nav-pane" id="mainNav">
+        <div class="nav-container">
+            <div class="brand">
+                <h1>Medkit & PPE Inventory</h1>
+            </div>
+            <div id="authBar">
+                <div id="lowStockAlert" class="alert-badge admin-only" title="Low Stock Items">🔔</div>
+                <div id="loginTrigger" class="avatar-circle" title="Admin Login">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                    </svg>
+                </div>
+
+<div id="employeeTrigger" class="avatar-circle admin only" title="Employee Registration / Request">
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+        <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+    </svg>
+</div>
+
+                <button id="logoutBtn" class="btn-danger" style="display:none;">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div id="loginModal" class="modal">
+            <div class="modal-content">
+                <h3>Admin Authentication</h3>
+                <input type="email" id="adminEmail" placeholder="Email">
+                <input type="password" id="adminPass" placeholder="Password">
+                <div class="modal-btns">
+                    <button id="loginBtn" class="btn-primary">Sign In</button>
+                    <button id="closeModal" class="btn-text">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="lowStockModal" class="modal">
+            <div class="modal-content">
+                <h3>⚠️ Low Stock Items</h3>
+                <ul id="lowStockList"></ul>
+                <button id="closeLowStockModal" class="btn-primary">Close</button>
+            </div>
+        </div>
+      
+      <div id="employeeModal" class="modal">
+    <div class="modal-content">
+        <h3>👥 Employee Management</h3>
+        <div class="admin-form-grid">
+            <input type="hidden" id="editEmpId">
+            <input type="text" id="empNameAdmin" placeholder="Employee Name">
+            <input type="text" id="empIDAdmin" placeholder="Employee ID">
+            <button id="saveEmpBtn" class="btn-primary">Add / Update</button>
+        </div>
+        <div class="table-scroll" style="margin-top:15px;">
+            <table id="employeeTable">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>ID</th>
+                        <th class="admin-only">Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <button id="closeEmployeeModal" class="btn-primary" style="margin-top:15px;">Close</button>
+    </div>
+</div>
+
+<div id="categoryModal" class="modal">
+    <div class="modal-content" style="text-align: center;">
+        <h3>📦 Select Category</h3>
+        <p>Is this new item a Medkit or PPE?</p>
+        <div class="modal-btns" style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+            <button id="chooseMedkit" class="btn-primary" style="background: #0ea5e9;">💊 Medkit Item</button>
+            <button id="choosePPE" class="btn-success">🛡️ PPE Item</button>
+            <button id="cancelCategory" class="btn-text">Cancel</button>
+        </div>
+    </div>
+</div>
+
+      <section class="card public-only" id="requestSection">
+    <div class="card-header-flex">
+        <h2 id="formTitle">Medkit Request Form</h2>
+        <button id="formToggleBtn" class="btn-icon" title="Switch to PPE Request">
+    <span id="toggleIcon">🛡️</span>
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-5.5-2.5l7.5-7.5-7.5-7.5L5 2l9 9-9 9z"/>
+            </svg>
+        </button>
+    </div>
+    <div class="request-grid transition-fade" id="requestFields">
+        <input type="text" id="reqName" placeholder="Full Name">
+        <input type="text" id="reqID" placeholder="Employee ID">
+        <select id="reqItemSelect"></select>
+        <input type="number" id="reqQty" placeholder="Qty" min="1">
+        <textarea id="reqPurpose" placeholder="Purpose for request..."></textarea>
+        <button id="reqBtn" class="btn-success">Submit Request</button>
+    </div>
+</section>
+
+      
+      <section class="card public-only" id="employeeForm" style="display:none;">
+    <h2>📝 Employee Item Request</h2>
+    <div class="request-grid">
+        <input type="text" id="empName" placeholder="Full Name">
+        <input type="text" id="empID" placeholder="Employee ID">
+        <select id="empItemSelect"></select>
+        <input type="number" id="empQty" placeholder="Qty" min="1">
+        <textarea id="empPurpose" placeholder="Purpose for request..."></textarea>
+        <button id="empReqBtn" class="btn-success">Submit Request</button>
+    </div>
+</section>
+
+
+        <section class="card admin-only">
+            <h2>⚙️ Inventory Management</h2>
+            <div class="admin-form-grid">
+                <input type="hidden" id="editItemId">
+                <input type="text" id="itemName" placeholder="Item Name">                <input type="number" id="itemQty" placeholder="Quantity">
+                <button id="saveBtn" class="btn-primary">Add / Update</button>
+            </div>
+        </section>
+
+       <!-- In your HTML file, update the table header section -->
+<section class="card">
+    <h2>📦 Current Stock</h2>
+    <div class="table-scroll no-scroll">
+        <table id="inventoryTable">
+            <thead>
+                <tr>
+                    <th style="width: 60%; text-align: left;">DESCRIPTION</th>
+                    <th style="width: 20%; text-align: center;">LEVEL</th>
+                    <th class="admin-only" style="width: 20%; text-align: center;">ACTIONS</th>
+                </tr>
+            </thead>
+            <tbody id="inventoryBody"></tbody>
+        </table>
+    </div>
+</section>
+
+        <section class="card admin-only">
+            <h2>📊 Logs</h2>
+            <div class="logs-controls">
+                <select id="logTypeSelect">
+                    <option value="requests">Requests</option>
+                    <option value="admin">Admin</option>
+                </select>
+                <input type="month" id="logFilterMonth">
+                <button id="downloadCsvBtn" class="btn-success">CSV</button>
+            </div>
+            <div id="reportTableContainer" class="table-scroll"></div>
+        </section>
+    </div>
+    <script type="module" src="app.js"></script>
+</body>
+</html>
