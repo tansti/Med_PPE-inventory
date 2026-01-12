@@ -53,29 +53,30 @@
         </div>
       
       <div id="employeeModal" class="modal">
-    <div class="modal-content">
-        <h3>👥 Employee Management</h3>
-        <div class="admin-form-grid">
-            <input type="hidden" id="editEmpId">
-            <input type="text" id="empNameAdmin" placeholder="Employee Name">
-            <input type="text" id="empIDAdmin" placeholder="Employee ID">
-            <button id="saveEmpBtn" class="btn-primary">Add / Update</button>
-        </div>
-        <div class="table-scroll" style="margin-top:15px;">
-            <table id="employeeTable">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>ID</th>
-                        <th class="admin-only">Actions</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-        <button id="closeEmployeeModal" class="btn-primary" style="margin-top:15px;">Close</button>
+  <div class="modal-content">
+    <h3>👥 Employee Management</h3>
+    <div class="admin-form-grid">
+      <input type="hidden" id="editEmpId">
+      <input type="text" id="empNameAdmin" placeholder="Employee Name">
+      <input type="text" id="empIDAdmin" placeholder="Employee ID">
+      <button id="saveEmpBtn" class="btn-primary">Add / Update</button>
     </div>
+    <div class="table-scroll">
+      <table id="employeeTable">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>ID</th>
+            <th class="admin-only" style="width: 110px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <button id="closeEmployeeModal" class="btn-primary" style="margin-top: 15px; align-self: center;">Close</button>
+  </div>
 </div>
+
 
 <div id="categoryModal" class="modal">
     <div class="modal-content" style="text-align: center;">
