@@ -510,7 +510,112 @@ button:active {
     margin-top: 25px;
 }
 
+/* ================= ENHANCED EMPLOYEE MODAL ================= */
+/* ================= FIX EMPLOYEE MODAL FORM LAYOUT ================= */
+#employeeModal .admin-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 12px;
+    align-items: end;
+    margin-bottom: 20px;
+}
+
+#employeeModal .admin-form-grid input,
+#employeeModal .admin-form-grid button {
+    margin-bottom: 0;
+    height: 48px; /* Consistent height */
+    box-sizing: border-box;
+}
+
+#employeeModal .admin-form-grid input[type="hidden"] {
+    display: none;
+}
+
+/* Ensure proper button alignment */
+#employeeModal .admin-form-grid button {
+    white-space: nowrap;
+    min-width: 120px;
+}
+
+/* Add this to your existing CSS file */
+#employeeModal .admin-form-grid button {
+    grid-column: 3;
+    grid-row: 1;
+}
+
+#employeeModal .table-scroll {
+    flex: 1; /* Takes remaining space */
+    overflow: auto;
+    max-height: 300px; /* Fixed scrollable area */
+    margin-top: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+}
+
+#employeeModal table {
+    min-width: 400px; /* Minimum table width */
+    border-spacing: 0;
+}
+
+#employeeModal th, #employeeModal td {
+    padding: 10px 12px;
+    white-space: nowrap;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+#employeeModal th {
+    background: rgba(59, 130, 246, 0.1);
+    font-weight: 600;
+}
+
+#employeeModal td:nth-child(1) { /* Name column */
+    min-width: 150px;
+}
+
+#employeeModal td:nth-child(2) { /* ID column */
+    min-width: 100px;
+}
+
+#employeeModal td:nth-child(3) { /* Actions column */
+    min-width: 100px;
+    text-align: center;
+}
+
+/* ================= STOCK FILTER BUTTONS ================= */
+.btn-filter {
+    background: rgba(255, 255, 255, 0.3);
+    color: var(--text-main);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 10px 20px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-filter:hover {
+    background: rgba(255, 255, 255, 0.5);
+    transform: translateY(-2px);
+}
+
+.btn-filter.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+}
+
 /* ================= RESPONSIVE ENHANCEMENTS ================= */
+@media (max-width: 850px) {
+    #employeeModal .modal-content {
+        width: 95vw;
+        padding: 20px;
+    }
+    
+    #employeeModal .admin-form-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+}
+
 @media (max-width: 768px) {
     .container {
         margin-top: 90px;
@@ -546,6 +651,21 @@ button:active {
     }
 }
 
+@media (max-width: 600px) {
+    #employeeModal .modal-content {
+        padding: 15px;
+    }
+    
+    #employeeModal th, #employeeModal td {
+        padding: 8px 10px;
+        font-size: 14px;
+    }
+    
+    #employeeModal .table-scroll {
+        max-height: 250px;
+    }
+}
+
 @media (max-width: 480px) {
     body {
         padding: 10px;
@@ -563,6 +683,19 @@ button:active {
     button {
         padding: 12px 20px;
         font-size: 14px;
+    }
+    
+    #employeeModal .modal-content {
+        padding: 12px;
+    }
+    
+    #employeeModal th, #employeeModal td {
+        padding: 6px 8px;
+        font-size: 13px;
+    }
+    
+    #employeeModal table {
+        min-width: 300px;
     }
 }
 
@@ -590,7 +723,6 @@ body.mode-ppe:not(.is-admin) .cat-medkit {
 /* Request dropdown must also follow mode */
 body.mode-medkit:not(.is-admin) option.cat-ppe { display: none; }
 body.mode-ppe:not(.is-admin) option.cat-medkit { display: none; }
-
 
 /* ================= TRANSITION EFFECTS ================= */
 .transition-fade {
@@ -640,30 +772,4 @@ body.mode-ppe:not(.is-admin) option.cat-medkit { display: none; }
 
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(0, 0, 0, 0.3);
-
-  /* ================= STOCK FILTER BUTTONS ================= */
-.btn-filter {
-  background: rgba(255, 255, 255, 0.3);
-  color: var(--text-main);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  padding: 10px 20px;
-  font-weight: 600;
-  transition: all 0.3s ease;
 }
-
-.btn-filter:hover {
-  background: rgba(255, 255, 255, 0.5);
-  transform: translateY(-2px);
-}
-
-.btn-filter.active {
-  background: var(--primary);
-  color: white;
-  border-color: var(--primary);
-  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
-}
-  
-  
-  
-  
-  
