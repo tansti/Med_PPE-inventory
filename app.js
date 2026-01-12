@@ -16,7 +16,7 @@ const auth = getAuth(app);
 let allLogs = [];
 let lowStockItems = [];
 let currentLogView = "requests";
-let currentStockFilter = 'all'; // 'all', 'medkit', 'ppe' - Global filter state
+let currentStockFilter = 'all';
 let isPPEMode = false;
 let pendingItemData = null;
 
@@ -45,30 +45,53 @@ onAuthStateChanged(auth, user => {
   if (isAdmin) {
     loadReports();
     loadEmployees();
-    // Initialize stock filter to "all" when admin logs in
     currentStockFilter = 'all';
     updateStockFilterButtons();
     applyStockFilter();
+  } else {
+    // Initialize filter state for non-admin users
+    currentStockFilter = isPPEMode ? 'ppe' : 'medkit';
+    applyStockFilter();
   }
-  
-  applyStockFilter(); // For non-admin mode
 });
 
 /* ================= MODAL CONTROLS ================= */
-const setupModal = (triggerId, modalId, closeId) => {
+const setupModal = (triggerId, modalId, closeId, onCloseCallback = null) => {
   const trigger = document.getElementById(triggerId);
   const modal = document.getElementById(modalId);
   const close = document.getElementById(closeId);
   
-  if (trigger && modal) trigger.onclick = () => modal.style.display = "flex";
-  if (close && modal) close.onclick = () => { 
-    modal.style.display = "none"; 
-    if(modalId === "employeeModal") resetEmployeeForm();
-  };
+  if (trigger && modal) {
+    trigger.onclick = () => {
+      modal.style.display = "flex";
+      document.body.style.overflow = "hidden"; // Prevent background scrolling
+    };
+  }
+  
+  if (close && modal) {
+    close.onclick = () => { 
+      modal.style.display = "none"; 
+      document.body.style.overflow = "auto"; // Restore scrolling
+      if(onCloseCallback) onCloseCallback();
+    };
+  }
+  
+  // Close modal when clicking outside
+  if (modal) {
+    modal.onclick = (e) => {
+      if (e.target === modal) {
+        modal.style.display = "none";
+        document.body.style.overflow = "auto";
+        if(onCloseCallback) onCloseCallback();
+      }
+    };
+  }
 };
 
 setupModal("loginTrigger", "loginModal", "closeModal");
-setupModal("employeeTrigger", "employeeModal", "closeEmployeeModal");
+setupModal("employeeTrigger", "employeeModal", "closeEmployeeModal", () => {
+  resetEmployeeForm();
+});
 setupModal("lowStockAlert", "lowStockModal", "closeLowStockModal");
 
 /* ================= INVENTORY SYNC ================= */
@@ -87,27 +110,27 @@ onValue(ref(db, "inventory"), snapshot => {
     const item = data[key];
     const qty = parseInt(item.quantity) || 0;
     const isLow = qty <= 5;
+    const itemName = item.name || "";
     
     if (isLow) {
-      lowStockItems.push({ name: item.name, quantity: qty });
-      lowStockList.innerHTML += `<li><strong>${item.name}</strong>: Only ${qty} left</li>`;
+      lowStockItems.push({ name: itemName, quantity: qty });
+      lowStockList.innerHTML += `<li><strong>${itemName}</strong>: Only ${qty} left</li>`;
     }
     
-    // Determine category
-    const isPPE = item.name.toLowerCase().includes('(ppe)') || 
-                  ['mask', 'gloves', 'gown', 'shield', 'ppe', 'face shield', 'apron', 'coverall'].some(w => 
-                    item.name.toLowerCase().includes(w)
-                  );
+    // Determine category - improved logic
+    const lowerName = itemName.toLowerCase();
+    const isPPE = lowerName.includes('(ppe)') || 
+                  ['mask', 'gloves', 'gown', 'shield', 'ppe', 'face shield', 'apron', 'coverall', 'safety', 'protective'].some(w => 
+                    lowerName.includes(w)
+                  ) ||
+                  (item.category && item.category === 'ppe');
     
     const tr = document.createElement("tr");
-    if (isPPE) {
-      tr.className = "cat-ppe";
-    } else {
-      tr.className = "cat-medkit";
-    }
+    tr.className = isPPE ? "cat-ppe" : "cat-medkit";
+    tr.dataset.category = isPPE ? "ppe" : "medkit";
     
     tr.innerHTML = `
-      <td>${item.name}</td>
+      <td>${itemName}</td>
       <td style="text-align:center"><span class="stock-tag ${isLow ? 'low' : 'ok'}">${qty}</span></td>
       <td class="admin-only">
         <button class="btn-edit btn-primary" data-id="${key}" style="background:var(--warning);padding:5px 10px;">Edit</button>
@@ -116,13 +139,11 @@ onValue(ref(db, "inventory"), snapshot => {
     `;
     
     tbody.appendChild(tr);
-    select.innerHTML += `<option value="${key}">${item.name}</option>`;
+    select.innerHTML += `<option value="${key}" class="${isPPE ? 'cat-ppe' : 'cat-medkit'}">${itemName}</option>`;
   });
   
   // Apply current filter after inventory loads
-  if (auth.currentUser) {
-    applyStockFilter();
-  }
+  applyStockFilter();
   
   const bell = document.getElementById("lowStockAlert");
   if(bell) bell.style.display = (auth.currentUser && lowStockItems.length > 0) ? "flex" : "none";
@@ -143,41 +164,53 @@ document.getElementById('filterPPEBtn')?.addEventListener('click', () => {
 
 function setStockFilter(filterType) {
   currentStockFilter = filterType;
-  
-  // Apply filter to stock table
   applyStockFilter();
-  
-  // Update button styles
   updateStockFilterButtons();
-  
-  // Automatically filter logs to match stock selection
   applyLogFilter();
 }
 
 function applyStockFilter() {
   const rows = document.querySelectorAll('#inventoryBody tr');
+  const options = document.querySelectorAll('#reqItemSelect option');
   
+  // Apply filter to table rows
   rows.forEach(tr => {
+    const isPPERow = tr.classList.contains('cat-ppe');
+    const isMedkitRow = tr.classList.contains('cat-medkit');
+    
     switch(currentStockFilter) {
       case 'all':
         tr.style.display = 'table-row';
         break;
       case 'medkit':
-        if (tr.classList.contains('cat-medkit')) {
-          tr.style.display = 'table-row';
-        } else {
-          tr.style.display = 'none';
-        }
+        tr.style.display = isMedkitRow ? 'table-row' : 'none';
         break;
       case 'ppe':
-        if (tr.classList.contains('cat-ppe')) {
-          tr.style.display = 'table-row';
-        } else {
-          tr.style.display = 'none';
-        }
+        tr.style.display = isPPERow ? 'table-row' : 'none';
         break;
     }
   });
+  
+  // Apply filter to dropdown options
+  if (!auth.currentUser) { // Only for non-admin users
+    options.forEach(option => {
+      if (option.value === "") return; // Skip the default option
+      
+      const isPPEOption = option.classList.contains('cat-ppe');
+      const isMedkitOption = option.classList.contains('cat-medkit');
+      
+      switch(currentStockFilter) {
+        case 'medkit':
+          option.style.display = isMedkitOption ? 'block' : 'none';
+          break;
+        case 'ppe':
+          option.style.display = isPPEOption ? 'block' : 'none';
+          break;
+        default:
+          option.style.display = 'block';
+      }
+    });
+  }
 }
 
 function updateStockFilterButtons() {
@@ -185,7 +218,6 @@ function updateStockFilterButtons() {
   const medkitBtn = document.getElementById('filterMedkitBtn');
   const ppeBtn = document.getElementById('filterPPEBtn');
   
-  // Reset all buttons
   [allBtn, medkitBtn, ppeBtn].forEach(btn => {
     if (btn) {
       btn.classList.remove('btn-success', 'active');
@@ -193,7 +225,6 @@ function updateStockFilterButtons() {
     }
   });
   
-  // Set active button
   let activeBtn;
   switch(currentStockFilter) {
     case 'all': activeBtn = allBtn; break;
@@ -219,14 +250,20 @@ if (toggleBtn) {
       document.body.classList.remove("mode-medkit");
       document.getElementById("formTitle").innerText = "🛡️ PPE Request Form";
       document.getElementById("toggleIcon").innerText = "💊";
+      toggleBtn.title = "Switch to Medkit Request";
     } else {
       document.body.classList.add("mode-medkit");
       document.body.classList.remove("mode-ppe");
       document.getElementById("formTitle").innerText = "💊 Medkit Request Form";
       document.getElementById("toggleIcon").innerText = "🛡️";
+      toggleBtn.title = "Switch to PPE Request";
     }
     
-    applyStockFilter();
+    // Update filter for non-admin users
+    if (!auth.currentUser) {
+      currentStockFilter = isPPEMode ? 'ppe' : 'medkit';
+      applyStockFilter();
+    }
   };
 }
 
@@ -242,28 +279,60 @@ function loadEmployees() {
       const emp = data[key];
       tbody.innerHTML += `
         <tr>
-          <td>${emp.name}</td>
-          <td>${emp.id}</td>
-          <td class="admin-only">
-            <button class="btn-primary" onclick="window.editEmployee('${key}', '${emp.name}', '${emp.id}')" style="padding:2px 8px; background:var(--warning); margin-right:5px;">Edit</button>
-            <button class="btn-danger" onclick="window.deleteEmployee('${key}')" style="padding:2px 8px;">×</button>
+          <td>${emp.name || ''}</td>
+          <td>${emp.id || ''}</td>
+          <td class="admin-only" style="white-space: nowrap;">
+            <button class="btn-primary btn-edit-emp" data-key="${key}" data-name="${emp.name || ''}" data-id="${emp.id || ''}" style="padding:5px 10px; background:var(--warning); margin-right:5px;">Edit</button>
+            <button class="btn-danger btn-delete-emp" data-key="${key}" style="padding:5px 10px;">×</button>
           </td>
         </tr>
       `;
     });
+    
+    // Attach event listeners to employee action buttons
+    attachEmployeeEventListeners();
   });
 }
 
-window.editEmployee = (key, name, id) => {
+function attachEmployeeEventListeners() {
+  // Edit buttons
+  document.querySelectorAll('.btn-edit-emp').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const key = btn.dataset.key;
+      const name = btn.dataset.name;
+      const id = btn.dataset.id;
+      editEmployee(key, name, id);
+    };
+  });
+  
+  // Delete buttons
+  document.querySelectorAll('.btn-delete-emp').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const key = btn.dataset.key;
+      deleteEmployee(key);
+    };
+  });
+}
+
+function editEmployee(key, name, id) {
   document.getElementById("editEmpId").value = key;
   document.getElementById("empNameAdmin").value = name;
   document.getElementById("empIDAdmin").value = id;
   document.getElementById("saveEmpBtn").innerText = "Update Employee";
-};
+  document.getElementById("empNameAdmin").focus();
+}
 
-window.deleteEmployee = (key) => {
-  if(confirm("Remove this employee?")) remove(ref(db, `employees/${key}`));
-};
+function deleteEmployee(key) {
+  if(confirm("Remove this employee?")) {
+    remove(ref(db, `employees/${key}`)).then(() => {
+      console.log("Employee deleted");
+    }).catch(error => {
+      alert("Error deleting employee: " + error.message);
+    });
+  }
+}
 
 function resetEmployeeForm() {
   document.getElementById("editEmpId").value = "";
@@ -277,15 +346,23 @@ document.getElementById("saveEmpBtn").onclick = async () => {
   const name = document.getElementById("empNameAdmin").value.trim();
   const id = document.getElementById("empIDAdmin").value.trim();
   
-  if (!name || !id) return alert("Fill Name and ID");
-  
-  if (key) {
-    await update(ref(db, `employees/${key}`), { name, id });
-  } else {
-    await push(ref(db, "employees"), { name, id });
+  if (!name || !id) {
+    alert("Please fill both Name and ID fields");
+    return;
   }
   
-  resetEmployeeForm();
+  try {
+    if (key) {
+      await update(ref(db, `employees/${key}`), { name, id });
+    } else {
+      await push(ref(db, "employees"), { name, id });
+    }
+    
+    resetEmployeeForm();
+    alert("Employee saved successfully!");
+  } catch (error) {
+    alert("Error saving employee: " + error.message);
+  }
 };
 
 /* ================= REQUEST VALIDATION ================= */
@@ -296,38 +373,68 @@ document.getElementById("reqBtn").onclick = async () => {
   const qty = parseInt(document.getElementById("reqQty").value);
   const purpose = document.getElementById("reqPurpose").value.trim();
   
-  if (!itemId || !inputName || !inputID || isNaN(qty)) return alert("Fill all fields");
+  if (!itemId || !inputName || !inputID || isNaN(qty) || qty <= 0) {
+    alert("Please fill all required fields with valid values");
+    return;
+  }
   
   try {
+    // Validate employee
     const empSnap = await get(ref(db, "employees"));
     const employees = empSnap.val() || {};
     const isValid = Object.values(employees).some(e => 
-      e.name.toLowerCase() === inputName.toLowerCase() && e.id === inputID
+      e.name && e.id && 
+      e.name.toLowerCase() === inputName.toLowerCase() && 
+      e.id === inputID
     );
     
-    if (!isValid) return alert("❌ Name and ID do not match registered employees.");
+    if (!isValid) {
+      alert("❌ Name and ID do not match any registered employee.");
+      return;
+    }
     
+    // Check stock availability
     const itemRef = ref(db, `inventory/${itemId}`);
     const itemSnap = await get(itemRef);
     const itemData = itemSnap.val();
     
-    if (itemData.quantity < qty) return alert("Insufficient stock!");
+    if (!itemData) {
+      alert("Selected item not found in inventory");
+      return;
+    }
     
-    await update(itemRef, { quantity: itemData.quantity - qty });
+    if (itemData.quantity < qty) {
+      alert(`Insufficient stock! Only ${itemData.quantity} available.`);
+      return;
+    }
     
+    // Update inventory
+    await update(itemRef, { 
+      quantity: itemData.quantity - qty 
+    });
+    
+    // Log transaction
     await push(ref(db, "transactions"), {
       date: new Date().toISOString(),
       requester: inputName,
       empID: inputID,
       itemName: itemData.name,
       qty: qty,
-      purpose: purpose || "General Issue"
+      purpose: purpose || "General Issue",
+      itemId: itemId
     });
     
     alert("✅ Request Granted!");
-    ["reqName", "reqID", "reqQty", "reqPurpose"].forEach(i => document.getElementById(i).value = "");
-  } catch (e) {
-    alert("Error: " + e.message);
+    
+    // Clear form
+    ["reqName", "reqID", "reqQty", "reqPurpose"].forEach(id => {
+      document.getElementById(id).value = "";
+    });
+    document.getElementById("reqItemSelect").selectedIndex = 0;
+    
+  } catch (error) {
+    alert("Error processing request: " + error.message);
+    console.error(error);
   }
 };
 
@@ -335,8 +442,13 @@ document.getElementById("reqBtn").onclick = async () => {
 function loadReports() {
   const path = currentLogView === "requests" ? "transactions" : "admin_logs";
   onValue(ref(db, path), snapshot => {
-    allLogs = snapshot.val() ? Object.values(snapshot.val()) : [];
-    applyLogFilter(); // Apply current stock filter to logs
+    const data = snapshot.val();
+    if (data) {
+      allLogs = Object.values(data);
+    } else {
+      allLogs = [];
+    }
+    applyLogFilter();
   });
 }
 
@@ -347,28 +459,27 @@ function applyLogFilter() {
   if (!container) return;
   
   // Filter by date first
-  let filtered = allLogs.filter(l => !filter || (l.date && l.date.startsWith(filter)));
+  let filtered = allLogs.filter(log => {
+    if (!log.date) return false;
+    if (!filter) return true;
+    return log.date.startsWith(filter);
+  });
   
-  // Apply stock filter to logs (sync with current stock selection)
+  // Apply stock filter to logs
   filtered = filtered.filter(log => {
-    // Skip logs that don't have itemName
     if (!log.itemName) return false;
     
-    const itemName = log.itemName.toLowerCase();
+    const itemName = (log.itemName || "").toLowerCase();
     const isPPE = itemName.includes('(ppe)') || 
                   ['mask', 'gloves', 'gown', 'shield', 'ppe', 'face shield', 'apron', 'coverall'].some(w => 
                     itemName.includes(w)
                   );
     
     switch(currentStockFilter) {
-      case 'all':
-        return true; // Show all logs
-      case 'medkit':
-        return !isPPE; // Show only non-PPE (Medkit) logs
-      case 'ppe':
-        return isPPE; // Show only PPE logs
-      default:
-        return true;
+      case 'all': return true;
+      case 'medkit': return !isPPE;
+      case 'ppe': return isPPE;
+      default: return true;
     }
   });
 
@@ -379,27 +490,35 @@ function applyLogFilter() {
     return;
   }
 
-  let html = `<table><thead><tr><th>Date</th><th>User</th><th>Action/Item</th><th>Detail</th></tr></thead><tbody>`;
+  let html = `<table style="width:100%"><thead><tr>
+    <th style="width:20%">Date</th>
+    <th style="width:15%">User</th>
+    <th style="width:30%">Action/Item</th>
+    <th style="width:35%">Detail</th>
+  </tr></thead><tbody>`;
   
-  filtered.slice().reverse().forEach(l => {
-    const itemName = l.itemName || '';
+  filtered.slice().reverse().forEach(log => {
+    const itemName = log.itemName || '';
     const isPPE = itemName.toLowerCase().includes('(ppe)');
     const categoryTag = isPPE ? ' 🛡️' : ' 💊';
+    const date = new Date(log.date);
+    const formattedDate = isNaN(date.getTime()) ? 'Invalid Date' : date.toLocaleDateString();
     
     html += `
       <tr>
-        <td><small>${new Date(l.date).toLocaleDateString()}</small></td>
-        <td>${l.admin || l.requester || ''}</td>
-        <td><strong>${l.action ? `[${l.action}]` : 'REQ'}</strong> ${itemName}${categoryTag}</td>
-        <td>Qty: ${l.qty} <br><small>${l.purpose || ''}</small></td>
+        <td><small>${formattedDate}</small></td>
+        <td>${log.admin || log.requester || ''}</td>
+        <td><strong>${log.action ? `[${log.action}]` : 'REQ'}</strong> ${itemName}${categoryTag}</td>
+        <td>Qty: ${log.qty || 0} <br><small>${log.purpose || ''}</small></td>
       </tr>
     `;
   });
   
-  container.innerHTML = html + "</tbody></table>";
+  html += "</tbody></table>";
+  container.innerHTML = html;
 }
 
-// Update existing log event listeners
+// Update log event listeners
 document.getElementById("logTypeSelect").onchange = e => {
   currentLogView = e.target.value;
   loadReports();
@@ -408,18 +527,25 @@ document.getElementById("logTypeSelect").onchange = e => {
 document.getElementById("logFilterMonth").onchange = applyLogFilter;
 
 document.getElementById("downloadCsvBtn").onclick = () => {
-  if (allLogs.length === 0) return alert("No data to export");
+  if (allLogs.length === 0) {
+    alert("No data to export");
+    return;
+  }
   
   const filter = document.getElementById("logFilterMonth")?.value || "";
   
   // Filter by date first
-  let filtered = allLogs.filter(l => !filter || (l.date && l.date.startsWith(filter)));
+  let filtered = allLogs.filter(log => {
+    if (!log.date) return false;
+    if (!filter) return true;
+    return log.date.startsWith(filter);
+  });
   
   // Apply stock filter to logs
   filtered = filtered.filter(log => {
     if (!log.itemName) return false;
     
-    const itemName = log.itemName.toLowerCase();
+    const itemName = (log.itemName || "").toLowerCase();
     const isPPE = itemName.includes('(ppe)') || 
                   ['mask', 'gloves', 'gown', 'shield', 'ppe', 'face shield', 'apron', 'coverall'].some(w => 
                     itemName.includes(w)
@@ -433,24 +559,32 @@ document.getElementById("downloadCsvBtn").onclick = () => {
     }
   });
   
-  if (filtered.length === 0) return alert("No data matches the current filter");
+  if (filtered.length === 0) {
+    alert("No data matches the current filter");
+    return;
+  }
   
   let csv = "Date,User,Action,Item,Qty,Category,Purpose\n";
   
-  filtered.forEach(l => {
-    const itemName = l.itemName || '';
+  filtered.forEach(log => {
+    const itemName = log.itemName || '';
     const isPPE = itemName.toLowerCase().includes('(ppe)');
     const category = isPPE ? 'PPE' : 'Medkit';
+    const date = new Date(log.date);
+    const formattedDate = isNaN(date.getTime()) ? 'Invalid Date' : date.toLocaleDateString();
     
-    csv += `${new Date(l.date).toLocaleDateString()},${l.admin || l.requester || ''},${l.action || 'Request'},"${itemName}",${l.qty},${category},"${(l.purpose || "").replace(/"/g, '""')}"\n`;
+    csv += `${formattedDate},${log.admin || log.requester || ''},${log.action || 'Request'},"${itemName}",${log.qty || 0},${category},"${(log.purpose || "").replace(/"/g, '""')}"\n`;
   });
   
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `Report_${currentLogView}_${currentStockFilter}_${filter || 'All'}.csv`;
+  link.download = `Report_${currentLogView}_${currentStockFilter}_${filter || 'All'}_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(link);
   link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 };
 
 /* ================= INVENTORY EDIT/DELETE ================= */
@@ -462,20 +596,34 @@ document.getElementById("inventoryBody").addEventListener("click", async e => {
     const tr = btn.closest("tr");
     document.getElementById("editItemId").value = id;
     document.getElementById("itemName").value = tr.cells[0].innerText;
-    document.getElementById("itemQty").value = tr.cells[1].innerText.replace(/\D/g, "");
+    
+    // Extract quantity from stock tag
+    const qtyText = tr.cells[1].querySelector('.stock-tag').innerText;
+    const qty = parseInt(qtyText) || 0;
+    document.getElementById("itemQty").value = qty;
+    
     document.getElementById("saveBtn").innerText = "Update Item";
     window.scrollTo({top: 0, behavior: 'smooth'});
   } else if (btn.classList.contains("btn-delete")) {
     const name = btn.closest("tr").cells[0].innerText;
-    if(confirm(`Delete ${name}?`)) {
-      await push(ref(db, "admin_logs"), {
-        date: new Date().toISOString(),
-        admin: auth.currentUser.email,
-        action: "Delete",
-        itemName: name,
-        qty: 0
-      });
-      await remove(ref(db, `inventory/${id}`));
+    if(confirm(`Delete "${name}" from inventory?`)) {
+      try {
+        // Log the deletion
+        await push(ref(db, "admin_logs"), {
+          date: new Date().toISOString(),
+          admin: auth.currentUser.email,
+          action: "Delete",
+          itemName: name,
+          qty: 0
+        });
+        
+        // Remove from inventory
+        await remove(ref(db, `inventory/${id}`));
+        
+        alert("Item deleted successfully");
+      } catch (error) {
+        alert("Error deleting item: " + error.message);
+      }
     }
   }
 });
@@ -486,67 +634,113 @@ document.getElementById("saveBtn").onclick = async () => {
   const name = document.getElementById("itemName").value.trim();
   const qty = parseInt(document.getElementById("itemQty").value);
   
-  if (!name || isNaN(qty)) return alert("Invalid entry");
+  if (!name) {
+    alert("Item name is required");
+    return;
+  }
   
-  if (id) {
-    await update(ref(db, `inventory/${id}`), { name, quantity: qty });
-    await push(ref(db, "admin_logs"), {
-      date: new Date().toISOString(),
-      admin: auth.currentUser.email,
-      action: "Edit",
-      itemName: name,
-      qty: qty
-    });
-    
-    ["editItemId", "itemName", "itemQty"].forEach(i => document.getElementById(i).value = "");
-    document.getElementById("saveBtn").innerText = "Add / Update";
-    alert("Inventory Updated");
-  } else {
-    pendingItemData = { name, qty };
-    document.getElementById("categoryModal").style.display = "flex";
+  if (isNaN(qty) || qty < 0) {
+    alert("Please enter a valid quantity (0 or higher)");
+    return;
+  }
+  
+  try {
+    if (id) {
+      // Update existing item
+      await update(ref(db, `inventory/${id}`), { 
+        name, 
+        quantity: qty 
+      });
+      
+      await push(ref(db, "admin_logs"), {
+        date: new Date().toISOString(),
+        admin: auth.currentUser.email,
+        action: "Edit",
+        itemName: name,
+        qty: qty
+      });
+      
+      // Reset form
+      ["editItemId", "itemName", "itemQty"].forEach(i => {
+        document.getElementById(i).value = "";
+      });
+      document.getElementById("saveBtn").innerText = "Add / Update";
+      
+      alert("Inventory Updated Successfully!");
+    } else {
+      // New item - show category selection
+      pendingItemData = { name, qty };
+      document.getElementById("categoryModal").style.display = "flex";
+    }
+  } catch (error) {
+    alert("Error saving item: " + error.message);
   }
 };
 
 document.getElementById("chooseMedkit").onclick = () => finalizeAddition("Medkit");
 document.getElementById("choosePPE").onclick = () => finalizeAddition("PPE");
-document.getElementById("cancelCategory").onclick = () => document.getElementById("categoryModal").style.display = "none";
-
-async function finalizeAddition(category) {
-  const finalName = category === "PPE" ? `${pendingItemData.name} (PPE)` : pendingItemData.name;
-  const newKey = push(ref(db, "inventory")).key;
-  
-  await update(ref(db, `inventory/${newKey}`), {
-    name: finalName,
-    quantity: pendingItemData.qty
-  });
-  
-  await push(ref(db, "admin_logs"), {
-    date: new Date().toISOString(),
-    admin: auth.currentUser.email,
-    action: "Add",
-    itemName: finalName,
-    qty: pendingItemData.qty
-  });
-  
+document.getElementById("cancelCategory").onclick = () => {
   document.getElementById("categoryModal").style.display = "none";
   pendingItemData = null;
+};
+
+async function finalizeAddition(category) {
+  if (!pendingItemData) return;
+  
+  try {
+    const finalName = category === "PPE" ? 
+      `${pendingItemData.name}${pendingItemData.name.toLowerCase().includes('(ppe)') ? '' : ' (PPE)'}` : 
+      pendingItemData.name;
+    
+    const newKey = push(ref(db, "inventory")).key;
+    
+    await update(ref(db, `inventory/${newKey}`), {
+      name: finalName,
+      quantity: pendingItemData.qty,
+      category: category.toLowerCase()
+    });
+    
+    await push(ref(db, "admin_logs"), {
+      date: new Date().toISOString(),
+      admin: auth.currentUser.email,
+      action: "Add",
+      itemName: finalName,
+      qty: pendingItemData.qty
+    });
+    
+    document.getElementById("categoryModal").style.display = "none";
+    
+    // Reset form
+    ["itemName", "itemQty"].forEach(i => {
+      document.getElementById(i).value = "";
+    });
+    
+    alert("Item Added Successfully!");
+    pendingItemData = null;
+  } catch (error) {
+    alert("Error adding item: " + error.message);
+  }
 }
 
 /* ================= AUTH ACTIONS ================= */
 document.getElementById("loginBtn").onclick = async () => {
+  const email = document.getElementById("adminEmail").value;
+  const password = document.getElementById("adminPass").value;
+  
+  if (!email || !password) {
+    alert("Please enter email and password");
+    return;
+  }
+  
   try {
-    await signInWithEmailAndPassword(
-      auth, 
-      document.getElementById("adminEmail").value, 
-      document.getElementById("adminPass").value
-    );
+    await signInWithEmailAndPassword(auth, email, password);
     document.getElementById("loginModal").style.display = "none";
-    // Clear credentials after successful login
+    // Clear credentials
     document.getElementById("adminEmail").value = "";
     document.getElementById("adminPass").value = "";
-  } catch {
-    alert("Login failed");
-    // Clear credentials on failed login too
+  } catch (error) {
+    alert("Login failed: " + error.message);
+    // Clear password on failed login
     document.getElementById("adminPass").value = "";
   }
 };
@@ -555,12 +749,17 @@ document.getElementById("logoutBtn").onclick = () => {
   signOut(auth).then(() => {
     // Reset to medkit mode when logging out
     isPPEMode = false;
-    currentStockFilter = 'all'; // Reset filter state
+    currentStockFilter = 'medkit'; // Non-admin default
+    
     document.body.classList.add("mode-medkit");
     document.body.classList.remove("mode-ppe");
     document.getElementById("formTitle").innerText = "💊 Medkit Request Form";
     document.getElementById("toggleIcon").innerText = "🛡️";
+    
     applyStockFilter();
+    alert("Logged out successfully");
+  }).catch(error => {
+    alert("Error logging out: " + error.message);
   });
 };
 
@@ -570,7 +769,31 @@ document.addEventListener('DOMContentLoaded', () => {
   document.body.classList.add("mode-medkit");
   document.getElementById("formTitle").innerText = "💊 Medkit Request Form";
   document.getElementById("toggleIcon").innerText = "🛡️";
+  if (toggleBtn) toggleBtn.title = "Switch to PPE Request";
   
-  // Initialize stock filter buttons
-  updateStockFilterButtons();
+  // Initialize stock filter buttons if admin
+  if (auth.currentUser) {
+    updateStockFilterButtons();
+  }
+  
+  // Add enter key support for login
+  document.getElementById("adminPass")?.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") {
+      document.getElementById("loginBtn").click();
+    }
+  });
+  
+  // Add enter key support for employee form
+  document.getElementById("empIDAdmin")?.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") {
+      document.getElementById("saveEmpBtn").click();
+    }
+  });
+  
+  // Add enter key support for inventory form
+  document.getElementById("itemQty")?.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") {
+      document.getElementById("saveBtn").click();
+    }
+  });
 });
