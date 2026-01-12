@@ -16,7 +16,20 @@
 }
 
 /* ================= BASE ENHANCEMENTS ================= */
+
+
+/* Add this to your CSS */
+html, body {
+    overflow: auto !important;
+    height: 100%;
+}
+
 body {
+    min-height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto !important;
+  
+}body {
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     background: 
         radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.15) 0%, transparent 50%),
@@ -751,25 +764,4 @@ body.mode-ppe:not(.is-admin) option.cat-medkit { display: none; }
 
 .logs-controls button {
     white-space: nowrap;
-}
-
-/* ================= SCROLLBAR STYLING ================= */
-::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.05);
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 4px;
-    transition: background 0.3s;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.3);
 }
