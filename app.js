@@ -31,7 +31,7 @@ onAuthStateChanged(auth, user => {
   if (empTrigger) empTrigger.style.display = isAdmin ? "flex" : "none";
   
   // Show/hide admin filter buttons
-  const filterButtons = document.querySelectorAll('#filterAllBtn, #filterMedkitBtn, #filterPPEBtn');
+  const filterButtons = document.querySelectorAll('.filter-buttons');
   filterButtons.forEach(btn => {
     if (btn) btn.style.display = isAdmin ? 'flex' : 'none';
   });
@@ -64,14 +64,14 @@ const setupModal = (triggerId, modalId, closeId, onCloseCallback = null) => {
   if (trigger && modal) {
     trigger.onclick = () => {
       modal.style.display = "flex";
-      document.body.style.overflow = "hidden"; // Prevent background scrolling
+      document.body.style.overflow = "hidden";
     };
   }
   
   if (close && modal) {
     close.onclick = () => { 
       modal.style.display = "none"; 
-      document.body.style.overflow = "auto"; // Restore scrolling
+      document.body.style.overflow = "auto";
       if(onCloseCallback) onCloseCallback();
     };
   }
@@ -117,7 +117,7 @@ onValue(ref(db, "inventory"), snapshot => {
       lowStockList.innerHTML += `<li><strong>${itemName}</strong>: Only ${qty} left</li>`;
     }
     
-    // Determine category - improved logic
+    // Determine category
     const lowerName = itemName.toLowerCase();
     const isPPE = lowerName.includes('(ppe)') || 
                   ['mask', 'gloves', 'gown', 'shield', 'ppe', 'face shield', 'apron', 'coverall', 'safety', 'protective'].some(w => 
@@ -125,21 +125,35 @@ onValue(ref(db, "inventory"), snapshot => {
                   ) ||
                   (item.category && item.category === 'ppe');
     
+    const categoryClass = isPPE ? 'ppe' : 'medkit';
+    const categoryIcon = isPPE ? '🛡️' : '💊';
+    
     const tr = document.createElement("tr");
-    tr.className = isPPE ? "cat-ppe" : "cat-medkit";
-    tr.dataset.category = isPPE ? "ppe" : "medkit";
+    tr.className = `cat-${categoryClass}`;
+    tr.dataset.category = categoryClass;
     
     tr.innerHTML = `
-      <td>${itemName}</td>
-      <td style="text-align:center"><span class="stock-tag ${isLow ? 'low' : 'ok'}">${qty}</span></td>
-      <td class="admin-only">
-        <button class="btn-edit btn-primary" data-id="${key}" style="background:var(--warning);padding:5px 10px;">Edit</button>
-        <button class="btn-delete btn-danger" data-id="${key}" style="padding:5px 10px;">Del</button>
+      <td>
+        <span class="category-badge ${categoryClass}">${categoryIcon} ${isPPE ? 'PPE' : 'Medkit'}</span>
+        ${itemName}
+      </td>
+      <td style="text-align:center">
+        <div class="stock-level">
+          <span class="stock-indicator ${isLow ? 'low' : 'ok'}"></span>
+          <span class="stock-qty">${qty}</span>
+          ${isLow ? '<span style="color:#ef4444; font-size:0.8rem; margin-left:4px;">(Low)</span>' : ''}
+        </div>
+      </td>
+      <td class="admin-only" style="text-align:center">
+        <div class="table-actions">
+          <button class="btn-table btn-edit-table btn-edit" data-id="${key}">Edit</button>
+          <button class="btn-table btn-delete-table btn-delete" data-id="${key}">Delete</button>
+        </div>
       </td>
     `;
     
     tbody.appendChild(tr);
-    select.innerHTML += `<option value="${key}" class="${isPPE ? 'cat-ppe' : 'cat-medkit'}">${itemName}</option>`;
+    select.innerHTML += `<option value="${key}" class="cat-${categoryClass}">${itemName}</option>`;
   });
   
   // Apply current filter after inventory loads
@@ -220,8 +234,7 @@ function updateStockFilterButtons() {
   
   [allBtn, medkitBtn, ppeBtn].forEach(btn => {
     if (btn) {
-      btn.classList.remove('btn-success', 'active');
-      btn.classList.add('btn-primary');
+      btn.classList.remove('active');
     }
   });
   
@@ -233,8 +246,7 @@ function updateStockFilterButtons() {
   }
   
   if (activeBtn) {
-    activeBtn.classList.remove('btn-primary');
-    activeBtn.classList.add('btn-success', 'active');
+    activeBtn.classList.add('active');
   }
 }
 
@@ -282,8 +294,8 @@ function loadEmployees() {
           <td>${emp.name || ''}</td>
           <td>${emp.id || ''}</td>
           <td class="admin-only" style="white-space: nowrap;">
-            <button class="btn-primary btn-edit-emp" data-key="${key}" data-name="${emp.name || ''}" data-id="${emp.id || ''}" style="padding:5px 10px; background:var(--warning); margin-right:5px;">Edit</button>
-            <button class="btn-danger btn-delete-emp" data-key="${key}" style="padding:5px 10px;">×</button>
+            <button class="btn-table btn-edit-table btn-edit-emp" data-key="${key}" data-name="${emp.name || ''}" data-id="${emp.id || ''}" style="background:var(--warning);">Edit</button>
+            <button class="btn-table btn-delete-table btn-delete-emp" data-key="${key}">×</button>
           </td>
         </tr>
       `;
@@ -595,17 +607,17 @@ document.getElementById("inventoryBody").addEventListener("click", async e => {
   if (btn.classList.contains("btn-edit")) {
     const tr = btn.closest("tr");
     document.getElementById("editItemId").value = id;
-    document.getElementById("itemName").value = tr.cells[0].innerText;
+    document.getElementById("itemName").value = tr.querySelector('td').innerText.replace(/^.*💊.*🛡️\s*/, '').trim();
     
-    // Extract quantity from stock tag
-    const qtyText = tr.cells[1].querySelector('.stock-tag').innerText;
+    // Extract quantity from stock level
+    const qtyText = tr.querySelector('.stock-qty').innerText;
     const qty = parseInt(qtyText) || 0;
     document.getElementById("itemQty").value = qty;
     
     document.getElementById("saveBtn").innerText = "Update Item";
     window.scrollTo({top: 0, behavior: 'smooth'});
   } else if (btn.classList.contains("btn-delete")) {
-    const name = btn.closest("tr").cells[0].innerText;
+    const name = btn.closest("tr").querySelector('td').innerText.replace(/^.*💊.*🛡️\s*/, '').trim();
     if(confirm(`Delete "${name}" from inventory?`)) {
       try {
         // Log the deletion
