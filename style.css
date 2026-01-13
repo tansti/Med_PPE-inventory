@@ -16,20 +16,7 @@
 }
 
 /* ================= BASE ENHANCEMENTS ================= */
-
-
-/* Add this to your CSS */
-html, body {
-    overflow: auto !important;
-    height: 100%;
-}
-
 body {
-    min-height: 100vh;
-    overflow-x: hidden;
-    overflow-y: auto !important;
-  
-}body {
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     background: 
         radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.15) 0%, transparent 50%),
@@ -42,6 +29,7 @@ body {
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
 }
 
 .container {
@@ -258,7 +246,65 @@ textarea {
     50% { opacity: 0.7; }
 }
 
-/* ================= ENHANCED TABLES ================= */
+/* ================= STOCK FILTER BUTTONS - ENHANCED ================= */
+.card-header-flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.filter-buttons {
+    display: flex;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.3);
+    padding: 4px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.filter-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.filter-btn:hover {
+    background: rgba(255, 255, 255, 0.4);
+    transform: translateY(-1px);
+}
+
+.filter-btn.active {
+    background: white;
+    color: var(--primary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.filter-btn.active.filter-all {
+    background: linear-gradient(135deg, var(--success), var(--success-hover));
+    color: white;
+}
+
+.filter-btn.active.filter-medkit {
+    background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+    color: white;
+}
+
+.filter-btn.active.filter-ppe {
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+    color: white;
+}
+
+/* ================= ENHANCED TABLE DESIGN ================= */
 .table-scroll { 
     width: 100%; 
     overflow: auto;
@@ -267,6 +313,145 @@ textarea {
     backdrop-filter: blur(10px);
 }
 
+#inventoryTable {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: rgba(255, 255, 255, 0.4);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+#inventoryTable thead {
+    background: rgba(59, 130, 246, 0.1);
+}
+
+#inventoryTable th {
+    padding: 18px 20px;
+    font-weight: 600;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 0.8rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+#inventoryTable th:first-child {
+    border-radius: 12px 0 0 0;
+}
+
+#inventoryTable th:last-child {
+    border-radius: 0 12px 0 0;
+}
+
+#inventoryTable td {
+    padding: 18px 20px;
+    background: rgba(255, 255, 255, 0.5);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    transition: all 0.2s ease;
+}
+
+#inventoryTable tr:last-child td {
+    border-bottom: none;
+}
+
+#inventoryTable tr:hover td {
+    background: rgba(255, 255, 255, 0.8);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+#inventoryTable td:first-child {
+    font-weight: 500;
+    color: var(--text-main);
+}
+
+/* ================= STOCK LEVEL INDICATORS ================= */
+.stock-level {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.stock-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.stock-indicator.low {
+    background: #ef4444;
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
+}
+
+.stock-indicator.ok {
+    background: #22c55e;
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
+}
+
+.stock-qty {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+/* ================= CATEGORY BADGES ================= */
+.category-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-right: 8px;
+}
+
+.category-badge.medkit {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--primary);
+}
+
+.category-badge.ppe {
+    background: rgba(139, 92, 246, 0.1);
+    color: #8b5cf6;
+}
+
+/* ================= ACTIONS BUTTONS ================= */
+.table-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.btn-table {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.btn-edit-table {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+}
+
+.btn-delete-table {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+}
+
+.btn-table:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+}
+
+/* ================= OTHER TABLES ================= */
 table { 
     width: 100%; 
     border-collapse: separate; 
@@ -305,33 +490,6 @@ tr:hover td {
     background: rgba(255, 255, 255, 0.6);
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-}
-
-.stock-tag { 
-    display: inline-flex; 
-    align-items: center; 
-    justify-content: center; 
-    padding: 6px 14px; 
-    border-radius: 20px; 
-    font-size: 0.85rem; 
-    font-weight: 600; 
-    letter-spacing: 0.3px;
-    min-width: 60px;
-    transition: all 0.3s ease;
-}
-
-.stock-tag.low { 
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.1));
-    color: #b91c1c; 
-    border: 1px solid rgba(239, 68, 68, 0.2);
-    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.1);
-}
-
-.stock-tag.ok { 
-    background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.1));
-    color: #15803d; 
-    border: 1px solid rgba(34, 197, 94, 0.2);
-    box-shadow: 0 2px 8px rgba(34, 197, 94, 0.1);
 }
 
 /* ================= PREMIUM BUTTONS ================= */
@@ -407,13 +565,6 @@ button:active {
 }
 
 /* ================= ENHANCED TOGGLE BUTTON ================= */
-.card-header-flex {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 25px;
-}
-
 .btn-icon {
     background: rgba(59, 130, 246, 0.15);
     color: var(--primary);
@@ -494,6 +645,8 @@ button:active {
         inset 0 1px 0 rgba(255, 255, 255, 0.8);
     border: 1px solid rgba(255, 255, 255, 0.4);
     animation: modalSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    max-height: 85vh;
+    overflow-y: auto;
 }
 
 @keyframes modalSlideIn {
@@ -523,7 +676,6 @@ button:active {
     margin-top: 25px;
 }
 
-/* ================= ENHANCED EMPLOYEE MODAL ================= */
 /* ================= FIX EMPLOYEE MODAL FORM LAYOUT ================= */
 #employeeModal .admin-form-grid {
     display: grid;
@@ -536,7 +688,7 @@ button:active {
 #employeeModal .admin-form-grid input,
 #employeeModal .admin-form-grid button {
     margin-bottom: 0;
-    height: 48px; /* Consistent height */
+    height: 48px;
     box-sizing: border-box;
 }
 
@@ -544,76 +696,52 @@ button:active {
     display: none;
 }
 
-/* Ensure proper button alignment */
 #employeeModal .admin-form-grid button {
+    grid-column: 3;
+    grid-row: 1;
     white-space: nowrap;
     min-width: 120px;
 }
 
-/* Add this to your existing CSS file */
-#employeeModal .admin-form-grid button {
-    grid-column: 3;
-    grid-row: 1;
-}
-
 #employeeModal .table-scroll {
-    flex: 1; /* Takes remaining space */
+    flex: 1;
     overflow: auto;
-    max-height: 300px; /* Fixed scrollable area */
+    max-height: 300px;
     margin-top: 15px;
     border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 10px;
 }
 
-#employeeModal table {
-    min-width: 400px; /* Minimum table width */
-    border-spacing: 0;
+/* ================= FORM GRIDS ================= */
+.request-grid, .admin-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
 }
 
-#employeeModal th, #employeeModal td {
-    padding: 10px 12px;
-    white-space: nowrap;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+.request-grid textarea,
+.request-grid button,
+.admin-form-grid button {
+    grid-column: span 2;
 }
 
-#employeeModal th {
-    background: rgba(59, 130, 246, 0.1);
-    font-weight: 600;
+/* ================= LOGS CONTROLS ================= */
+.logs-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
 }
 
-#employeeModal td:nth-child(1) { /* Name column */
+.logs-controls select,
+.logs-controls input {
+    flex: 1;
     min-width: 150px;
+    margin-bottom: 0;
 }
 
-#employeeModal td:nth-child(2) { /* ID column */
-    min-width: 100px;
-}
-
-#employeeModal td:nth-child(3) { /* Actions column */
-    min-width: 100px;
-    text-align: center;
-}
-
-/* ================= STOCK FILTER BUTTONS ================= */
-.btn-filter {
-    background: rgba(255, 255, 255, 0.3);
-    color: var(--text-main);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    padding: 10px 20px;
-    font-weight: 600;
-    transition: all 0.3s ease;
-}
-
-.btn-filter:hover {
-    background: rgba(255, 255, 255, 0.5);
-    transform: translateY(-2px);
-}
-
-.btn-filter.active {
-    background: var(--primary);
-    color: white;
-    border-color: var(--primary);
-    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+.logs-controls button {
+    white-space: nowrap;
 }
 
 /* ================= RESPONSIVE ENHANCEMENTS ================= */
@@ -644,9 +772,31 @@ button:active {
         border-radius: 16px;
     }
     
+    .card-header-flex {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    
+    .filter-buttons {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .filter-btn {
+        flex: 1;
+        text-align: center;
+        padding: 10px 12px;
+    }
+    
     .request-grid, .admin-form-grid {
         grid-template-columns: 1fr;
-        gap: 12px;
+    }
+    
+    .request-grid textarea,
+    .request-grid button,
+    .admin-form-grid button {
+        grid-column: span 1;
     }
     
     .avatar-circle, .alert-badge {
@@ -662,6 +812,21 @@ button:active {
     #toggleIcon {
         font-size: 24px;
     }
+    
+    #inventoryTable th,
+    #inventoryTable td {
+        padding: 12px 15px;
+    }
+    
+    .table-actions {
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .btn-table {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+    }
 }
 
 @media (max-width: 600px) {
@@ -676,6 +841,14 @@ button:active {
     
     #employeeModal .table-scroll {
         max-height: 250px;
+    }
+    
+    .filter-buttons {
+        flex-direction: column;
+    }
+    
+    .filter-btn {
+        width: 100%;
     }
 }
 
@@ -710,6 +883,10 @@ button:active {
     #employeeModal table {
         min-width: 300px;
     }
+    
+    #inventoryTable {
+        font-size: 0.9rem;
+    }
 }
 
 /* ================= VISIBILITY CLASSES ================= */
@@ -719,21 +896,16 @@ body.is-admin td.admin-only, body.is-admin th.admin-only { display: table-cell !
 body.is-admin .public-only { display: none !important; }
 
 /* ================= CATEGORY FILTERING ================= */
-
-/* Default: show all */
 .cat-medkit, .cat-ppe { display: table-row; }
 
-/* Non-admin Medkit Mode → hide PPE */
 body.mode-medkit:not(.is-admin) .cat-ppe {
     display: none !important;
 }
 
-/* Non-admin PPE Mode → hide Medkit */
 body.mode-ppe:not(.is-admin) .cat-medkit {
     display: none !important;
 }
 
-/* Request dropdown must also follow mode */
 body.mode-medkit:not(.is-admin) option.cat-ppe { display: none; }
 body.mode-ppe:not(.is-admin) option.cat-medkit { display: none; }
 
@@ -745,23 +917,4 @@ body.mode-ppe:not(.is-admin) option.cat-medkit { display: none; }
 .form-hidden {
     opacity: 0;
     transform: translateY(10px);
-}
-
-/* ================= LOGS CONTROLS ================= */
-.logs-controls {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-}
-
-.logs-controls select,
-.logs-controls input {
-    flex: 1;
-    min-width: 150px;
-    margin-bottom: 0;
-}
-
-.logs-controls button {
-    white-space: nowrap;
 }
