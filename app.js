@@ -216,6 +216,7 @@ function checkExpiringItems(inventoryData) {
     expiringItems.sort((a, b) => a.daysLeft - b.daysLeft);
     
     updateExpiryAlertBadge();
+    updateExpiringCount();
 }
 
 function updateExpiryAlertBadge() {
@@ -256,6 +257,14 @@ function updateExpiryAlertBadge() {
             const badge = expiryAlert.querySelector('.expiry-badge');
             if (badge) badge.remove();
         }
+    }
+}
+
+function updateExpiringCount() {
+    const expiringCountElement = document.getElementById('expiringCount');
+    if (expiringCountElement) {
+        const expiringSoonCount = expiringItems.filter(item => item.daysLeft >= 0 && item.daysLeft <= 30).length;
+        expiringCountElement.textContent = expiringSoonCount;
     }
 }
 
@@ -565,7 +574,6 @@ onValue(ref(db, "inventory"), snapshot => {
     expiringItems = [];
     
     let totalItems = 0;
-    let totalQuantity = 0;
     let lowStockCount = 0;
     
     // Check if there's any data
@@ -578,7 +586,14 @@ onValue(ref(db, "inventory"), snapshot => {
         emptyMessage.style.display = 'none';
         stockSummary.style.display = 'block';
         
-        itemKeys.forEach(key => {
+        // Sort items by name for better organization
+        const sortedKeys = itemKeys.sort((a, b) => {
+            const nameA = (data[a].name || "").toLowerCase();
+            const nameB = (data[b].name || "").toLowerCase();
+            return nameA.localeCompare(nameB);
+        });
+        
+        sortedKeys.forEach(key => {
             const item = data[key];
             const qty = parseFloat(item.quantity) || 0;
             const unit = item.unit || 'Pc';
@@ -588,7 +603,6 @@ onValue(ref(db, "inventory"), snapshot => {
             
             // Update totals
             totalItems++;
-            totalQuantity += qty;
             if (isLow) lowStockCount++;
             
             const displayName = rawItemName.replace(/\s*\(PPE\)\s*$/i, '').trim();
@@ -654,45 +668,40 @@ onValue(ref(db, "inventory"), snapshot => {
             
             tr.innerHTML = `
                 <td style="position: sticky; left: 0; background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); z-index: 1;">
-                    <div class="item-with-unit" style="display: flex; align-items: center; gap: 8px;">
+                    <div class="item-with-unit" style="display: flex; align-items: center; gap: 6px;">
                         <span class="category-badge ${categoryClass}">${categoryIcon} ${isPPE ? 'PPE' : 'Medkit'}</span>
                         <div style="flex: 1; min-width: 0;">
-                            <div style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${displayName}</div>
-                            <div style="font-size: 0.8rem; color: #64748b; margin-top: 2px;">ID: ${key.substring(0, 8)}</div>
+                            <div style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem;">${displayName}</div>
+                            <div style="font-size: 0.75rem; color: #64748b; margin-top: 2px;">ID: ${key.substring(0, 6)}</div>
                         </div>
                         <span class="unit-badge">${unit}</span>
                     </div>
                 </td>
-                <td style="text-align:center; min-width: 150px;">
+                <td style="text-align:center;">
                     <div class="stock-level" style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
                             <span class="stock-indicator ${isCritical ? 'low' : isLow ? 'low' : 'ok'}"></span>
-                            <span class="stock-qty" style="font-weight: 600; font-size: 1.1rem;">${qty.toLocaleString()}</span>
+                            <span class="stock-qty" style="font-weight: 600; font-size: 0.95rem;">${qty.toLocaleString()}</span>
                         </div>
-                        <div style="display: flex; gap: 4px; font-size: 0.8rem; color: #64748b;">
-                            <span>${unit}</span>
-                            ${isCritical ? '<span style="color:#ef4444;">(Critical)</span>' : 
-                                isLow ? '<span style="color:#f59e0b;">(Low)</span>' : 
-                                '<span style="color:#22c55e;">(Good)</span>'}
+                        <div style="font-size: 0.75rem; color: #64748b;">
+                            ${isCritical ? '<span style="color:#ef4444;">Critical</span>' : 
+                                isLow ? '<span style="color:#f59e0b;">Low</span>' : 
+                                '<span style="color:#22c55e;">Good</span>'}
                         </div>
                     </div>
                 </td>
-                <td class="expiry-cell" style="min-width: 150px;"></td>
-                <td class="admin-only" style="text-align:center; min-width: 150px;">
-                    <div class="table-actions" style="display: flex; gap: 8px; justify-content: center;">
-                        <button class="btn-table btn-edit-table btn-edit" data-id="${key}" title="Edit Item" aria-label="Edit ${displayName}"
-                                style="padding: 6px 12px; font-size: 0.85rem;">
-                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24" style="margin-right: 4px;">
+                <td class="expiry-cell"></td>
+                <td class="admin-only">
+                    <div class="table-actions">
+                        <button class="btn-table btn-edit-table btn-edit" data-id="${key}" title="Edit Item" aria-label="Edit ${displayName}">
+                            <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                             </svg>
-                            Edit
                         </button>
-                        <button class="btn-table btn-delete-table btn-delete" data-id="${key}" title="Delete Item" aria-label="Delete ${displayName}"
-                                style="padding: 6px 12px; font-size: 0.85rem;">
-                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24" style="margin-right: 4px;">
+                        <button class="btn-table btn-delete-table btn-delete" data-id="${key}" title="Delete Item" aria-label="Delete ${displayName}">
+                            <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                             </svg>
-                            Delete
                         </button>
                     </div>
                 </td>
@@ -700,7 +709,7 @@ onValue(ref(db, "inventory"), snapshot => {
             
             tbody.appendChild(tr);
             
-            let optionText = `${displayName} (${qty} ${unit} available)`;
+            let optionText = `${displayName} (${qty} ${unit})`;
             if (!isPPE && item.expiryDate) {
                 const expiryDate = new Date(item.expiryDate);
                 const status = getExpiryStatus(item.expiryDate);
@@ -724,7 +733,7 @@ onValue(ref(db, "inventory"), snapshot => {
             if (manualItemSelect) {
                 const manualOption = document.createElement("option");
                 manualOption.value = key;
-                manualOption.textContent = `${displayName} (${qty} ${unit} available)`;
+                manualOption.textContent = `${displayName} (${qty} ${unit})`;
                 manualOption.dataset.name = rawItemName;
                 manualOption.dataset.unit = unit;
                 manualItemSelect.appendChild(manualOption);
@@ -733,8 +742,8 @@ onValue(ref(db, "inventory"), snapshot => {
         
         // Update summary
         document.getElementById('totalItems').textContent = totalItems;
-        document.getElementById('totalQuantity').textContent = totalQuantity.toLocaleString();
         document.getElementById('lowStockCount').textContent = lowStockCount;
+        updateExpiringCount();
     }
     
     applyStockFilter();
@@ -806,7 +815,6 @@ function applyStockFilter() {
   const emptyMessage = document.getElementById('emptyStockMessage');
   
   let visibleCount = 0;
-  let totalQty = 0;
   let lowStockVisible = 0;
   
   rows.forEach(tr => {
@@ -832,7 +840,6 @@ function applyStockFilter() {
     if (shouldShow) {
       tr.style.display = 'table-row';
       visibleCount++;
-      totalQty += qty;
       if (isLow) lowStockVisible++;
     } else {
       tr.style.display = 'none';
@@ -842,7 +849,6 @@ function applyStockFilter() {
   // Update summary
   if (stockSummary && visibleCount > 0) {
     document.getElementById('totalItems').textContent = visibleCount;
-    document.getElementById('totalQuantity').textContent = totalQty.toLocaleString();
     document.getElementById('lowStockCount').textContent = lowStockVisible;
   }
   
@@ -965,14 +971,14 @@ function loadEmployees() {
                   data-name="${emp.name || ''}" 
                   data-id="${emp.id || ''}"
                   title="Edit Employee">
-            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
+            <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
               <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
             </svg>
           </button>
           <button class="btn-table btn-delete-table btn-delete-emp" 
                   data-key="${key}"
                   title="Delete Employee">
-            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
+            <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
               <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
             </svg>
           </button>
@@ -1841,7 +1847,7 @@ function populateManualRequestItems() {
             if (qty > 0) {
                 const option = document.createElement("option");
                 option.value = key;
-                option.textContent = `${displayName} (${qty} ${unit} available)`;
+                option.textContent = `${displayName} (${qty} ${unit})`;
                 option.dataset.name = rawName;
                 option.dataset.unit = unit;
                 itemSelect.appendChild(option);
@@ -1907,7 +1913,7 @@ async function editRequestFromLog(requestKey) {
                 if (!itemSelect.value) {
                     const option = document.createElement("option");
                     option.value = requestData.itemId;
-                    option.textContent = `${requestData.itemName} (0 ${requestData.unit || 'Pc'} available)`;
+                    option.textContent = `${requestData.itemName} (0 ${requestData.unit || 'Pc'})`;
                     option.dataset.name = requestData.itemName;
                     option.dataset.unit = requestData.unit || 'Pc';
                     option.selected = true;
@@ -2632,7 +2638,6 @@ async function processImport() {
     
     let successCount = 0;
     let errorCount = 0;
-    let skipCount = 0;
     
     for (let i = 0; i < importItems.length; i++) {
         const item = importItems[i];
@@ -2734,7 +2739,6 @@ async function processImport() {
     
     const results = [];
     if (successCount > 0) results.push(`✅ ${successCount} items imported`);
-    if (skipCount > 0) results.push(`⚠️ ${skipCount} items skipped (already exist)`);
     if (errorCount > 0) results.push(`❌ ${errorCount} items failed`);
     
     importStatus.innerHTML = `<strong>Import Complete!</strong><br>${results.join('<br>')}`;
