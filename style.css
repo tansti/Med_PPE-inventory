@@ -1639,3 +1639,44 @@ body {
     background: #3b82f6;
     color: white;
 }
+
+/* Manual Request Modal Styles */
+#manualRequestModal .modal-content {
+    max-width: 500px;
+    width: 100%;
+}
+
+#manualRequestModal .admin-form-grid {
+    margin: 20px 0;
+}
+
+#manualRequestModal select {
+    background-color: white;
+}
+
+/* Log Actions Buttons */
+.logs-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.logs-actions button {
+    padding: 10px 16px;
+    font-size: 14px;
+}
+
+/* Delete Confirmation Modal */
+.delete-confirm-modal .modal-content {
+    max-width: 400px;
+    text-align: center;
+}
+
+.delete-confirm-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 20px;
+}
