@@ -2,11 +2,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.2" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MedKit and PPE | Inventory System</title>
     <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+    <div id="globalLoader" style="display:none;">
+        <div class="spinner"></div>
+        <span>Loading...</span>
+    </div>
+
     <nav class="nav-pane" id="mainNav">
         <div class="nav-container">
             <div class="brand">
@@ -35,8 +40,8 @@
         <div id="loginModal" class="modal">
             <div class="modal-content">
                 <h3>Admin Authentication</h3>
-                <input type="email" id="adminEmail" placeholder="Email">
-                <input type="password" id="adminPass" placeholder="Password">
+                <input type="email" id="adminEmail" placeholder="Email" autocomplete="email">
+                <input type="password" id="adminPass" placeholder="Password" autocomplete="current-password">
                 <div class="modal-btns">
                     <button id="loginBtn" class="btn-primary">Sign In</button>
                     <button id="closeModal" class="btn-text">Cancel</button>
@@ -92,7 +97,7 @@
       <section class="card public-only" id="requestSection">
           <div class="card-header-flex">
               <h2 id="formTitle">Medkit Request Form</h2>
-              <button id="formToggleBtn" class="btn-icon" title="Switch to PPE Request">
+              <button id="formToggleBtn" class="btn-icon" title="Switch to PPE Request" aria-label="Toggle between Medkit and PPE request forms">
                   <span id="toggleIcon">🛡️</span>
                   <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-5.5-2.5l7.5-7.5-7.5-7.5L5 2l9 9-9 9z"/>
@@ -100,11 +105,11 @@
               </button>
           </div>
           <div class="request-grid transition-fade" id="requestFields">
-              <input type="text" id="reqName" placeholder="Full Name">
-              <input type="text" id="reqID" placeholder="Employee ID">
-              <select id="reqItemSelect"></select>
-              <input type="number" id="reqQty" placeholder="Qty" min="1">
-              <textarea id="reqPurpose" placeholder="Purpose for request..."></textarea>
+              <input type="text" id="reqName" placeholder="Full Name" aria-label="Full Name">
+              <input type="text" id="reqID" placeholder="Employee ID" aria-label="Employee ID">
+              <select id="reqItemSelect" aria-label="Select Item"></select>
+              <input type="number" id="reqQty" placeholder="Qty" min="1" aria-label="Quantity">
+              <textarea id="reqPurpose" placeholder="Purpose for request..." aria-label="Purpose for request"></textarea>
               <button id="reqBtn" class="btn-success">Submit Request</button>
           </div>
       </section>
@@ -113,8 +118,8 @@
             <h2>⚙️ Inventory Management</h2>
             <div class="admin-form-grid">
                 <input type="hidden" id="editItemId">
-                <input type="text" id="itemName" placeholder="Item Name">
-                <input type="number" id="itemQty" placeholder="Quantity">
+                <input type="text" id="itemName" placeholder="Item Name" aria-label="Item Name">
+                <input type="number" id="itemQty" placeholder="Quantity" aria-label="Quantity">
                 <button id="saveBtn" class="btn-primary">Add / Update</button>
             </div>
         </section>
@@ -129,7 +134,7 @@
             </div>
           </div>
           <div class="table-scroll">
-            <table id="inventoryTable">
+            <table id="inventoryTable" aria-label="Inventory Table">
               <thead>
                 <tr>
                   <th style="width: 50%; text-align: left;">DESCRIPTION</th>
@@ -145,12 +150,19 @@
         <section class="card admin-only">
             <h2>📊 Logs</h2>
             <div class="logs-controls">
-                <select id="logTypeSelect">
-                    <option value="requests">Requests</option>
-                    <option value="admin">Admin</option>
-                </select>
-                <input type="month" id="logFilterMonth">
-                <button id="downloadCsvBtn" class="btn-success">CSV</button>
+                <div class="logs-filter-group">
+                    <label for="logTypeSelect" class="logs-filter-label">Log Type:</label>
+                    <select id="logTypeSelect">
+                        <option value="requests">Requests</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="logs-filter-group">
+                    <label for="logFilterMonth" class="logs-filter-label">Filter Month:</label>
+                    <input type="month" id="logFilterMonth">
+                </div>
+                <button id="downloadCsvBtn" class="btn-success">Export CSV</button>
+                <button id="backupBtn" class="btn-primary admin-only">Backup Data</button>
             </div>
             <div id="reportTableContainer" class="table-scroll"></div>
         </section>
