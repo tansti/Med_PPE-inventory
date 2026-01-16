@@ -87,13 +87,13 @@ body {
     backdrop-filter: blur(15px) saturate(200%);
     -webkit-backdrop-filter: blur(15px) saturate(200%);
     border: 1px solid var(--glass-border);
-    padding: 30px;
-    border-radius: 20px;
+    padding: 25px;
+    border-radius: 16px;
     box-shadow: 
         0 8px 32px var(--glass-shadow),
         inset 0 1px 0 rgba(255, 255, 255, 0.7),
         inset 0 -1px 0 rgba(0, 0, 0, 0.05);
-    margin-bottom: 25px;
+    margin-bottom: 20px;
     overflow: hidden;
     position: relative;
     transition: all 0.3s ease;
@@ -118,8 +118,8 @@ body {
 
 .card h2 {
     margin-top: 0;
-    margin-bottom: 25px;
-    font-size: 1.5rem;
+    margin-bottom: 20px;
+    font-size: 1.4rem;
     font-weight: 700;
     color: var(--text-main);
     display: flex;
@@ -135,11 +135,11 @@ body {
 /* ================= ENHANCED INPUT FIELDS ================= */
 input, select, textarea {
     width: 100%;
-    padding: 14px 16px;
+    padding: 12px 14px;
     background: rgba(255, 255, 255, 0.7);
     border: 1px solid rgba(255, 255, 255, 0.5);
-    border-radius: 12px;
-    margin-bottom: 12px;
+    border-radius: 10px;
+    margin-bottom: 10px;
     font-family: inherit;
     font-size: 15px;
     box-sizing: border-box;
@@ -336,21 +336,21 @@ textarea {
 
 .filter-buttons {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     background: rgba(255, 255, 255, 0.3);
     padding: 4px;
-    border-radius: 12px;
+    border-radius: 10px;
     border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .filter-btn {
-    padding: 8px 16px;
+    padding: 6px 12px;
     border: none;
-    border-radius: 8px;
+    border-radius: 6px;
     background: transparent;
     color: var(--text-secondary);
     font-weight: 600;
-    font-size: 14px;
+    font-size: 13px;
     cursor: pointer;
     transition: all 0.3s ease;
     white-space: nowrap;
@@ -391,7 +391,7 @@ textarea {
 }
 
 .table-scroll { 
-    max-height: 500px;
+    max-height: 400px;
     overflow-y: auto;
     overflow-x: auto;
     border-radius: 12px;
@@ -431,7 +431,7 @@ textarea {
     border-collapse: separate;
     border-spacing: 0;
     background: rgba(255, 255, 255, 0.4);
-    min-width: 800px;
+    min-width: 600px;
 }
 
 #inventoryTable thead {
@@ -442,12 +442,12 @@ textarea {
 }
 
 #inventoryTable th {
-    padding: 18px 20px;
+    padding: 14px 12px;
     font-weight: 600;
     color: #475569;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.3);
     white-space: nowrap;
 }
@@ -462,12 +462,12 @@ textarea {
 }
 
 #inventoryTable td {
-    padding: 18px 20px;
+    padding: 12px;
     background: rgba(255, 255, 255, 0.5);
     border-bottom: 1px solid rgba(255, 255, 255, 0.3);
     transition: all 0.2s ease;
     white-space: nowrap;
-    min-width: 150px;
+    min-width: 120px;
 }
 
 #inventoryTable td:first-child {
@@ -499,7 +499,7 @@ textarea {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 6px;
     flex-direction: column;
 }
 
@@ -530,11 +530,11 @@ textarea {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 4px 8px;
+    padding: 3px 6px;
     border-radius: 6px;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: 600;
-    margin-right: 8px;
+    margin-right: 6px;
 }
 
 .category-badge.medkit {
@@ -552,23 +552,23 @@ textarea {
     display: inline-block;
     background: rgba(59, 130, 246, 0.1);
     color: var(--primary);
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 0.75rem;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 0.7rem;
     font-weight: 600;
-    margin-left: 8px;
+    margin-left: 6px;
     vertical-align: middle;
 }
 
 .item-with-unit {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
 }
 
 .unit-display {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: #64748b;
     margin-left: 4px;
 }
@@ -576,13 +576,13 @@ textarea {
 /* ================= ACTIONS BUTTONS ================= */
 .table-actions {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     justify-content: center;
 }
 
 .btn-table {
-    padding: 6px 12px;
-    font-size: 0.85rem;
+    padding: 5px 10px;
+    font-size: 0.8rem;
     border-radius: 6px;
     border: none;
     cursor: pointer;
@@ -609,7 +609,7 @@ textarea {
 table { 
     width: 100%; 
     border-collapse: separate; 
-    border-spacing: 0 8px; 
+    border-spacing: 0 6px; 
     min-width: 0; 
 }
 
@@ -617,7 +617,7 @@ th {
     font-size: 0.75rem; 
     text-transform: uppercase; 
     color: #64748b; 
-    padding: 16px 14px; 
+    padding: 14px 12px; 
     text-align: left; 
     font-weight: 600;
     letter-spacing: 0.5px;
@@ -627,7 +627,7 @@ th {
 
 td { 
     background: rgba(255, 255, 255, 0.4);
-    padding: 18px 14px;
+    padding: 14px 12px;
     border-top: 1px solid rgba(255, 255, 255, 0.5);
     transition: all 0.2s ease;
 }
@@ -650,10 +650,10 @@ tr:hover td {
 button {
     cursor: pointer;
     border: none;
-    border-radius: 12px;
+    border-radius: 10px;
     font-weight: 600;
-    padding: 14px 24px;
-    font-size: 15px;
+    padding: 12px 20px;
+    font-size: 14px;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     letter-spacing: 0.3px;
     position: relative;
@@ -723,8 +723,8 @@ button:active {
     background: rgba(59, 130, 246, 0.15);
     color: var(--primary);
     border-radius: 50%;
-    width: 55px;
-    height: 55px;
+    width: 48px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -749,7 +749,7 @@ button:active {
 }
 
 #toggleIcon {
-    font-size: 28px;
+    font-size: 24px;
     line-height: 1;
     transition: transform 0.4s ease;
 }
@@ -792,8 +792,8 @@ button:active {
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(20px) saturate(200%);
     -webkit-backdrop-filter: blur(20px) saturate(200%);
-    padding: 30px;
-    border-radius: 20px;
+    padding: 25px;
+    border-radius: 16px;
     width: 100%;
     max-width: 450px;
     box-shadow: 
@@ -819,9 +819,9 @@ button:active {
 
 .modal-content h3 {
     margin-top: 0;
-    margin-bottom: 25px;
+    margin-bottom: 20px;
     color: var(--text-main);
-    font-size: 1.4rem;
+    font-size: 1.3rem;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -830,7 +830,7 @@ button:active {
 .modal-btns {
     display: flex;
     gap: 10px;
-    margin-top: 25px;
+    margin-top: 20px;
 }
 
 /* Specific modal adjustments */
@@ -846,7 +846,7 @@ button:active {
 /* Employee modal needs wider for table */
 #employeeModal .modal-content {
     max-width: 500px;
-    padding: 25px;
+    padding: 20px;
 }
 
 /* Category modal adjustments */
@@ -877,7 +877,7 @@ button:active {
 }
 
 #lowStockList li {
-    padding: 12px 0;
+    padding: 10px 0;
     border-bottom: 1px solid rgba(0, 0, 0, 0.1);
     display: flex;
     justify-content: space-between;
@@ -892,7 +892,7 @@ button:active {
 #employeeModal .admin-form-grid {
     display: grid;
     grid-template-columns: 1fr 1fr auto;
-    gap: 10px;
+    gap: 8px;
     align-items: end;
     margin-bottom: 20px;
 }
@@ -900,7 +900,7 @@ button:active {
 #employeeModal .admin-form-grid input,
 #employeeModal .admin-form-grid button {
     margin-bottom: 0;
-    height: 48px;
+    height: 44px;
     box-sizing: border-box;
 }
 
@@ -912,7 +912,7 @@ button:active {
     grid-column: 3;
     grid-row: 1;
     white-space: nowrap;
-    min-width: 120px;
+    min-width: 110px;
 }
 
 #employeeModal .table-scroll {
@@ -927,7 +927,7 @@ button:active {
 /* Fix for employee modal buttons */
 #employeeModal .table-actions {
   display: flex !important;
-  gap: 8px;
+  gap: 6px;
   justify-content: center;
 }
 
@@ -947,7 +947,7 @@ body.is-admin .btn-delete-emp {
 .request-grid, .admin-form-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 15px;
+    gap: 12px;
 }
 
 .request-grid textarea,
@@ -962,6 +962,7 @@ body.is-admin .btn-delete-emp {
     gap: 10px;
     margin-bottom: 20px;
     flex-wrap: wrap;
+    align-items: center;
 }
 
 .logs-controls select,
@@ -969,35 +970,58 @@ body.is-admin .btn-delete-emp {
     flex: 1;
     min-width: 150px;
     margin-bottom: 0;
+    font-size: 14px;
 }
 
 .logs-controls button {
     white-space: nowrap;
+    padding: 10px 16px;
 }
 
 /* ================= RESPONSIVE ENHANCEMENTS ================= */
 @media (max-width: 768px) {
+    body {
+        padding: 15px;
+    }
+    
     .modal {
         padding: 15px;
         align-items: center;
     }
     
     .modal-content {
-        padding: 25px;
+        padding: 20px;
         max-height: 80vh;
         max-width: 90vw !important;
         border-radius: 16px;
     }
     
+    .card {
+        padding: 20px;
+        border-radius: 14px;
+    }
+    
+    .nav-container {
+        padding: 0 15px;
+    }
+    
+    .brand h1 {
+        font-size: 1.3rem;
+    }
+    
+    .card h2 {
+        font-size: 1.2rem;
+    }
+    
     /* Employee modal needs special handling on mobile */
     #employeeModal .modal-content {
         max-width: 95vw !important;
-        padding: 20px;
+        padding: 15px;
     }
     
     #employeeModal .admin-form-grid {
         grid-template-columns: 1fr;
-        gap: 12px;
+        gap: 10px;
     }
     
     #employeeModal .admin-form-grid button {
@@ -1017,7 +1041,7 @@ body.is-admin .btn-delete-emp {
     }
     
     #loginModal input {
-        padding: 12px 14px;
+        padding: 14px 16px;
         font-size: 16px;
     }
     
@@ -1037,6 +1061,7 @@ body.is-admin .btn-delete-emp {
     .card-header-flex {
         flex-direction: column;
         align-items: flex-start;
+        gap: 12px;
     }
     
     .filter-buttons {
@@ -1045,25 +1070,40 @@ body.is-admin .btn-delete-emp {
     }
     
     .table-scroll {
-        max-height: 400px;
+        max-height: 350px;
+    }
+    
+    #inventoryTable td, 
+    #inventoryTable th {
+        padding: 10px 8px;
+        font-size: 0.9rem;
     }
 }
 
 @media (max-width: 480px) {
+    body {
+        padding: 10px;
+    }
+    
     .modal {
         padding: 10px;
         background: rgba(0, 0, 0, 0.2);
     }
     
     .modal-content {
-        padding: 20px;
+        padding: 18px;
         max-height: 85vh;
-        border-radius: 16px;
+        border-radius: 14px;
     }
     
     .modal-content h3 {
-        font-size: 1.25rem;
+        font-size: 1.2rem;
         margin-bottom: 15px;
+    }
+    
+    .card {
+        padding: 15px;
+        border-radius: 12px;
     }
     
     /* Ensure login modal inputs are touch-friendly */
@@ -1075,7 +1115,7 @@ body.is-admin .btn-delete-emp {
     
     /* Employee modal table adjustments */
     #employeeModal .table-scroll {
-        max-height: 200px;
+        max-height: 250px;
     }
     
     #employeeModal th, 
@@ -1090,18 +1130,43 @@ body.is-admin .btn-delete-emp {
     }
     
     #employeeModal .btn-table {
-        padding: 8px 10px;
+        padding: 6px 8px;
         font-size: 12px;
     }
     
     /* Low stock modal adjustments */
     #lowStockList li {
         font-size: 14px;
-        padding: 10px 0;
+        padding: 8px 0;
     }
     
     #lowStockModal .modal-content h3 {
         font-size: 1.2rem;
+    }
+    
+    .avatar-circle {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .alert-badge {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+    }
+    
+    button {
+        padding: 10px 16px;
+        font-size: 13px;
+    }
+    
+    .btn-icon {
+        width: 44px;
+        height: 44px;
+    }
+    
+    #toggleIcon {
+        font-size: 22px;
     }
 }
 
@@ -1120,48 +1185,18 @@ body.is-admin .btn-delete-emp {
     }
     
     .filter-buttons {
-        flex-direction: column;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
     }
     
     .filter-btn {
-        width: 100%;
-    }
-}
-
-@media (max-width: 480px) {
-    body {
-        padding: 10px;
-    }
-    
-    .brand h1 {
-        font-size: 1.2rem;
-    }
-    
-    .modal-content {
-        padding: 25px;
-        width: 95%;
-    }
-    
-    button {
-        padding: 12px 20px;
-        font-size: 14px;
-    }
-    
-    #employeeModal .modal-content {
-        padding: 12px;
-    }
-    
-    #employeeModal th, #employeeModal td {
-        padding: 6px 8px;
-        font-size: 13px;
-    }
-    
-    #employeeModal table {
-        min-width: 300px;
+        padding: 6px 10px;
+        font-size: 12px;
     }
     
     #inventoryTable {
-        font-size: 0.9rem;
+        min-width: 500px;
     }
 }
 
@@ -1188,18 +1223,18 @@ body.is-admin .btn-delete-emp {
 #categoryModal .modal-btns {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
     margin-top: 20px;
 }
 
 #categoryModal .modal-btns button {
     width: 100%;
-    padding: 14px;
-    font-size: 16px;
+    padding: 12px;
+    font-size: 15px;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 8px;
 }
 
 #chooseMedkit {
@@ -1295,12 +1330,12 @@ body.mode-ppe:not(.is-admin) option.cat-medkit { display: none; }
 }
 
 .logs-table th {
-    padding: 18px 16px;
+    padding: 14px 12px;
     font-weight: 600;
     color: #475569;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.3);
     text-align: left;
 }
@@ -1329,14 +1364,15 @@ body.mode-ppe:not(.is-admin) option.cat-medkit { display: none; }
 }
 
 .logs-table td {
-    padding: 16px;
+    padding: 12px;
     vertical-align: top;
+    font-size: 0.9rem;
 }
 
 /* Date column */
 .log-date {
-    min-width: 100px;
-    font-size: 0.9rem;
+    min-width: 90px;
+    font-size: 0.85rem;
     color: #64748b;
     font-weight: 500;
 }
@@ -1345,19 +1381,19 @@ body.mode-ppe:not(.is-admin) option.cat-medkit { display: none; }
 .log-user {
     font-weight: 600;
     color: var(--text-main);
-    min-width: 100px;
+    min-width: 90px;
 }
 
 /* Expiry column */
 .log-expiry {
-    min-width: 90px;
+    min-width: 80px;
 }
 
 .expiry-log-badge {
     display: inline-block;
-    padding: 3px 8px;
-    border-radius: 12px;
-    font-size: 0.75rem;
+    padding: 3px 6px;
+    border-radius: 10px;
+    font-size: 0.7rem;
     font-weight: 600;
     margin: 2px 0;
 }
@@ -1379,18 +1415,18 @@ body.mode-ppe:not(.is-admin) option.cat-medkit { display: none; }
 
 /* Action/Item column */
 .log-action-item {
-    min-width: 200px;
+    min-width: 180px;
 }
 
 .action-badge {
     display: inline-block;
     background: linear-gradient(135deg, var(--primary), var(--primary-hover));
     color: white;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 0.75rem;
+    padding: 3px 8px;
+    border-radius: 16px;
+    font-size: 0.7rem;
     font-weight: 600;
-    margin-right: 8px;
+    margin-right: 6px;
     letter-spacing: 0.3px;
 }
 
@@ -1415,17 +1451,18 @@ body.mode-ppe:not(.is-admin) option.cat-medkit { display: none; }
     color: var(--text-main);
     margin-top: 4px;
     display: block;
+    font-size: 0.9rem;
 }
 
 .category-indicator {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 0.65rem;
     font-weight: 600;
-    margin-left: 8px;
+    margin-left: 6px;
     vertical-align: middle;
 }
 
@@ -1441,26 +1478,26 @@ body.mode-ppe:not(.is-admin) option.cat-medkit { display: none; }
 
 /* Detail column */
 .log-detail {
-    min-width: 200px;
+    min-width: 180px;
 }
 
 .quantity-badge {
     display: inline-block;
     background: rgba(59, 130, 246, 0.1);
     color: var(--primary);
-    padding: 4px 12px;
-    border-radius: 20px;
+    padding: 4px 10px;
+    border-radius: 16px;
     font-weight: 600;
-    font-size: 0.85rem;
-    margin-bottom: 8px;
+    font-size: 0.8rem;
+    margin-bottom: 6px;
 }
 
 .purpose-text {
     color: var(--text-secondary);
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     line-height: 1.4;
     background: rgba(255, 255, 255, 0.3);
-    padding: 8px 12px;
+    padding: 6px 10px;
     border-radius: 8px;
     border-left: 3px solid var(--primary);
 }
@@ -1482,9 +1519,9 @@ body.mode-ppe:not(.is-admin) option.cat-medkit { display: none; }
 /* ================= LOGS CONTROLS ENHANCED ================= */
 .logs-controls {
     display: flex;
-    gap: 12px;
-    margin-bottom: 20px;
-    padding: 16px;
+    gap: 10px;
+    margin-bottom: 15px;
+    padding: 12px;
     background: rgba(255, 255, 255, 0.3);
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.2);
@@ -1495,7 +1532,7 @@ body.mode-ppe:not(.is-admin) option.cat-medkit { display: none; }
 .logs-controls select,
 .logs-controls input {
     flex: 1;
-    min-width: 180px;
+    min-width: 150px;
     margin-bottom: 0;
     background: white;
 }
@@ -1507,7 +1544,7 @@ body.mode-ppe:not(.is-admin) option.cat-medkit { display: none; }
 }
 
 .logs-filter-label {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: 600;
     color: var(--text-secondary);
     white-space: nowrap;
@@ -1516,21 +1553,19 @@ body.mode-ppe:not(.is-admin) option.cat-medkit { display: none; }
 /* Responsive adjustments for logs */
 @media (max-width: 768px) {
     .logs-table {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
+        min-width: 700px;
     }
     
     .logs-table th,
     .logs-table td {
-        padding: 12px 10px;
-    }
-    
-    .logs-table-container {
-        overflow-x: auto;
+        padding: 10px 8px;
     }
     
     .logs-controls {
         flex-direction: column;
         align-items: stretch;
+        gap: 8px;
     }
     
     .logs-controls select,
@@ -1541,6 +1576,7 @@ body.mode-ppe:not(.is-admin) option.cat-medkit { display: none; }
     .logs-filter-group {
         flex-direction: column;
         align-items: flex-start;
+        width: 100%;
     }
 }
 
@@ -1601,7 +1637,7 @@ body {
     }
     
     .btn-table {
-        padding: 10px 15px;
+        padding: 8px 12px;
     }
 }
 
@@ -1779,8 +1815,8 @@ body {
     border-radius: 8px;
     overflow: hidden;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
+}   
+ 
 #importPreviewTable th {
     background: #f8fafc;
     padding: 12px;
@@ -1835,6 +1871,7 @@ body {
 /* ================= STOCK SUMMARY STYLES ================= */
 #stockSummary {
     animation: slideUp 0.3s ease;
+    font-size: 0.9rem;
 }
 
 @keyframes slideUp {
@@ -1867,4 +1904,49 @@ body {
     position: sticky;
     top: 0;
     background: #f8fafc;
+}
+
+/* Compact view improvements */
+.compact-view .card {
+    padding: 15px;
+}
+
+.compact-view #inventoryTable td,
+.compact-view #inventoryTable th {
+    padding: 8px 10px;
+}
+
+.compact-view .category-badge {
+    padding: 2px 5px;
+    font-size: 0.65rem;
+}
+
+.compact-view .unit-badge {
+    padding: 1px 5px;
+    font-size: 0.65rem;
+}
+
+/* Smooth scrolling for mobile */
+@media (max-width: 768px) {
+    .table-scroll {
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* Touch-friendly table cells */
+@media (max-width: 480px) {
+    #inventoryTable td,
+    #inventoryTable th {
+        padding: 8px 6px;
+    }
+    
+    .table-actions {
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .btn-table {
+        width: 100%;
+        text-align: center;
+    }
 }
