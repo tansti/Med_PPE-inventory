@@ -296,10 +296,10 @@
                 <table id="inventoryTable" aria-label="Inventory Table">
                 <thead style="position: sticky; top: 0; z-index: 10; background: rgba(59, 130, 246, 0.1);">
                     <tr>
-                    <th style="width: 40%; min-width: 200px; text-align: left; position: sticky; left: 0; background: inherit; z-index: 11;">DESCRIPTION</th>
-                    <th style="width: 20%; min-width: 120px; text-align: center;">LEVEL</th>
-                    <th style="width: 15%; min-width: 100px; text-align: center;">EXPIRY</th>
-                    <th style="width: 15%; min-width: 150px; text-align: center;" class="admin-only">ACTIONS</th>
+                    <th style="width: 35%; min-width: 180px; text-align: left; position: sticky; left: 0; background: inherit; z-index: 11;">DESCRIPTION</th>
+                    <th style="width: 25%; min-width: 100px; text-align: center;">QUANTITY</th>
+                    <th style="width: 20%; min-width: 90px; text-align: center;">EXPIRY</th>
+                    <th style="width: 20%; min-width: 120px; text-align: center;" class="admin-only">ACTIONS</th>
                     </tr>
                 </thead>
                 <tbody id="inventoryBody"></tbody>
@@ -307,11 +307,11 @@
             </div>
             
             <div id="stockSummary" style="margin-top: 15px; padding: 12px; background: rgba(59, 130, 246, 0.05); border-radius: 8px; display: none;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <strong>Total Items:</strong> <span id="totalItems">0</span> | 
-                        <strong>Total Quantity:</strong> <span id="totalQuantity">0</span> |
-                        <strong>Low Stock:</strong> <span id="lowStockCount">0</span>
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                        <span><strong>Total Items:</strong> <span id="totalItems">0</span></span>
+                        <span><strong>Low Stock:</strong> <span id="lowStockCount">0</span></span>
+                        <span><strong>Expiring Soon:</strong> <span id="expiringCount">0</span></span>
                     </div>
                     <button id="clearStockFilter" class="btn-text" style="font-size: 12px;">Clear Filters</button>
                 </div>
@@ -355,7 +355,7 @@
                 </button>
                 <button id="downloadCsvBtn" class="btn-success">Export CSV</button>
             </div>
-            <div id="reportTableContainer" class="table-scroll"></div>
+            <div id="reportTableContainer" class="table-scroll" style="max-height: 400px;"></div>
         </section>
     </div>
     <script type="module" src="app.js"></script>
