@@ -33,7 +33,7 @@ body {
 }
 
 .container {
-    max-width: 900px;
+    max-width: 1200px;
     margin: 80px auto 0 auto;
     padding: 0 15px;
     position: relative;
@@ -58,7 +58,7 @@ body {
 }
 
 .nav-container {
-    max-width: 900px;
+    max-width: 1200px;
     margin: 0 auto;
     display: flex;
     justify-content: space-between;
@@ -382,27 +382,63 @@ textarea {
     color: white;
 }
 
-/* ================= ENHANCED TABLE DESIGN ================= */
-.table-scroll { 
-    width: 100%; 
-    overflow: auto;
+/* ================= ENHANCED TABLE CONTAINERS ================= */
+.table-container {
+    position: relative;
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.3);
-    backdrop-filter: blur(10px);
+    padding: 1px;
 }
 
+.table-scroll { 
+    max-height: 500px;
+    overflow-y: auto;
+    overflow-x: auto;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.4);
+    position: relative;
+}
+
+/* Custom scrollbar for tables */
+.table-scroll::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.table-scroll::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 4px;
+}
+
+.table-scroll::-webkit-scrollbar-thumb {
+    background: rgba(59, 130, 246, 0.3);
+    border-radius: 4px;
+}
+
+.table-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(59, 130, 246, 0.5);
+}
+
+/* For Firefox */
+.table-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(59, 130, 246, 0.3) rgba(0, 0, 0, 0.05);
+}
+
+/* ================= ENHANCED INVENTORY TABLE DESIGN ================= */
 #inventoryTable {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
     background: rgba(255, 255, 255, 0.4);
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    min-width: 800px;
 }
 
 #inventoryTable thead {
     background: rgba(59, 130, 246, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
 #inventoryTable th {
@@ -413,14 +449,16 @@ textarea {
     letter-spacing: 0.5px;
     font-size: 0.8rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    white-space: nowrap;
 }
 
 #inventoryTable th:first-child {
-    border-radius: 12px 0 0 0;
-}
-
-#inventoryTable th:last-child {
-    border-radius: 0 12px 0 0;
+    position: sticky;
+    left: 0;
+    background: rgba(59, 130, 246, 0.1);
+    backdrop-filter: blur(10px);
+    z-index: 11;
+    border-right: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 #inventoryTable td {
@@ -428,6 +466,17 @@ textarea {
     background: rgba(255, 255, 255, 0.5);
     border-bottom: 1px solid rgba(255, 255, 255, 0.3);
     transition: all 0.2s ease;
+    white-space: nowrap;
+    min-width: 150px;
+}
+
+#inventoryTable td:first-child {
+    position: sticky;
+    left: 0;
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(10px);
+    z-index: 1;
+    border-right: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 #inventoryTable tr:last-child td {
@@ -983,6 +1032,20 @@ body.is-admin .btn-delete-emp {
     
     .admin-form-grid {
         grid-template-columns: 1fr;
+    }
+    
+    .card-header-flex {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .filter-buttons {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .table-scroll {
+        max-height: 400px;
     }
 }
 
@@ -1707,7 +1770,7 @@ body {
     margin-top: 20px;
 }
 
-/* Excel Import Modal Styles */
+/* ================= EXCEL IMPORT MODAL STYLES ================= */
 #importPreviewTable {
     width: 100%;
     border-collapse: collapse;
@@ -1742,17 +1805,6 @@ body {
     background: #f1f5f9;
 }
 
-/* Progress bar animation */
-@keyframes pulse {
-    0% { opacity: 0.6; }
-    50% { opacity: 1; }
-    100% { opacity: 0.6; }
-}
-
-.processing-item {
-    animation: pulse 1.5s infinite;
-}
-
 /* Validation styles */
 .valid-row {
     background: rgba(34, 197, 94, 0.05) !important;
@@ -1780,41 +1832,39 @@ body {
     gap: 5px;
 }
 
-/* File upload area */
-.file-upload-area {
-    border: 2px dashed #cbd5e1;
-    border-radius: 12px;
-    padding: 40px 20px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    background: rgba(255, 255, 255, 0.5);
-    margin: 20px 0;
+/* ================= STOCK SUMMARY STYLES ================= */
+#stockSummary {
+    animation: slideUp 0.3s ease;
 }
 
-.file-upload-area:hover {
-    border-color: #3b82f6;
-    background: rgba(59, 130, 246, 0.05);
+@keyframes slideUp {
+    from { 
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
-.file-upload-area.dragover {
-    border-color: #3b82f6;
-    background: rgba(59, 130, 246, 0.1);
-    transform: scale(1.02);
+#emptyStockMessage {
+    animation: fadeIn 0.3s ease;
 }
 
-.file-upload-icon {
-    font-size: 48px;
-    margin-bottom: 15px;
-    color: #3b82f6;
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
-.file-upload-text {
-    font-weight: 600;
-    color: #475569;
-    margin-bottom: 8px;
+/* Excel Import Preview Styles */
+#importPreviewTable {
+    max-height: 300px;
+    overflow-y: auto;
 }
-.file-upload-subtext {
-    font-size: 0.9rem;
-    color: #64748b;
+
+#importPreviewTable thead th {
+    position: sticky;
+    top: 0;
+    background: #f8fafc;
 }
