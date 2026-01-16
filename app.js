@@ -20,6 +20,7 @@ let currentLogView = "requests";
 let currentStockFilter = 'all';
 let isPPEMode = false;
 let pendingItemData = null;
+let editingRequestId = null;
 
 /* ================= ENHANCED UI FEEDBACK ================= */
 function showToast(message, type = "success") {
@@ -1100,6 +1101,7 @@ function applyLogFilter() {
     <th style="width:10%">Expiry</th>
     <th style="width:25%">Action/Item</th>
     <th style="width:35%">Detail</th>
+    <th style="width:10%" class="admin-only">Actions</th>
   </tr></thead><tbody>`;
   
   filtered.slice(0, 100).forEach(log => {
@@ -1124,7 +1126,7 @@ function applyLogFilter() {
     ` : '<div class="log-expiry">-</div>';
     
     html += `
-      <tr>
+      <tr data-log-id="${log.id || ''}">
         <td>
           <div style="font-weight:500;">${formattedDate}</div>
           <div style="font-size:12px; color:#64748b;">${formattedTime}</div>
@@ -1149,6 +1151,22 @@ function applyLogFilter() {
           </div>
           ${log.purpose ? `<div class="purpose-text">${log.purpose}</div>` : ''}
         </td>
+        <td class="admin-only">
+          ${currentLogView === "requests" && !log.action ? `
+            <div class="table-actions" style="justify-content:center; gap:4px;">
+              <button class="btn-table btn-edit-table btn-edit-log" data-id="${log.id || ''}" title="Edit Request">
+                <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                </svg>
+              </button>
+              <button class="btn-table btn-delete-table btn-delete-log" data-id="${log.id || ''}" title="Delete Request">
+                <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                </svg>
+              </button>
+            </div>
+          ` : ''}
+        </td>
       </tr>
     `;
   });
@@ -1162,6 +1180,29 @@ function applyLogFilter() {
   }
   
   container.innerHTML = html;
+  
+  // Attach event listeners to log action buttons
+  attachLogActionButtons();
+}
+
+function attachLogActionButtons() {
+  // Edit log buttons
+  document.querySelectorAll('.btn-edit-log').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const logId = btn.dataset.id;
+      editRequestFromLog(logId);
+    };
+  });
+  
+  // Delete log buttons
+  document.querySelectorAll('.btn-delete-log').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const logId = btn.dataset.id;
+      deleteRequestFromLog(logId);
+    };
+  });
 }
 
 document.getElementById("logTypeSelect").onchange = e => {
@@ -1546,6 +1587,343 @@ document.getElementById("logoutBtn").onclick = () => {
   }
 };
 
+/* ================= MANUAL REQUEST FUNCTIONS ================= */
+// Reset manual request form
+function resetManualRequestForm() {
+    editingRequestId = null;
+    document.getElementById("manualRequestId").value = "";
+    document.getElementById("manualReqName").value = "";
+    document.getElementById("manualReqID").value = "";
+    
+    // Set default date to today and prevent future dates
+    const today = new Date().toISOString().split('T')[0];
+    const dateInput = document.getElementById('manualReqDate');
+    if (dateInput) {
+        dateInput.value = today;
+        dateInput.max = today; // Prevent future dates
+    }
+    
+    document.getElementById("manualReqQty").value = "";
+    document.getElementById("manualReqPurpose").value = "";
+    document.getElementById("manualReqStatus").value = "Completed";
+    document.getElementById("saveManualRequestBtn").innerText = "Save Request";
+}
+
+// Populate items for manual request
+function populateManualRequestItems() {
+    const itemSelect = document.getElementById("manualReqItem");
+    if (!itemSelect) return;
+    
+    itemSelect.innerHTML = '<option value="">Select Item...</option>';
+    
+    // Get inventory items
+    get(ref(db, "inventory")).then(snapshot => {
+        const data = snapshot.val() || {};
+        Object.keys(data).forEach(key => {
+            const item = data[key];
+            const qty = parseInt(item.quantity) || 0;
+            const rawName = item.name || "";
+            const displayName = rawName.replace(/\s*\(PPE\)\s*$/i, '').trim();
+            
+            if (qty > 0) {
+                const option = document.createElement("option");
+                option.value = key;
+                option.textContent = `${displayName} (${qty} available)`;
+                option.dataset.name = rawName;
+                itemSelect.appendChild(option);
+            }
+        });
+    }).catch(error => {
+        console.error("Error loading items:", error);
+        showToast("Error loading inventory items", "error");
+    });
+}
+
+// Save manual request
+document.getElementById("saveManualRequestBtn").onclick = async () => {
+    try {
+        const requestId = document.getElementById("manualRequestId").value;
+        const name = document.getElementById("manualReqName").value.trim();
+        const empID = document.getElementById("manualReqID").value.trim();
+        const date = document.getElementById("manualReqDate").value;
+        const itemSelect = document.getElementById("manualReqItem");
+        const itemId = itemSelect.value;
+        const selectedOption = itemSelect.options[itemSelect.selectedIndex];
+        const itemName = selectedOption?.dataset.name || "";
+        const qty = parseInt(document.getElementById("manualReqQty").value);
+        const purpose = document.getElementById("manualReqPurpose").value.trim();
+        
+        // Validation
+        if (!name) {
+            showToast("Please enter requester name", "error");
+            document.getElementById("manualReqName").focus();
+            return;
+        }
+        
+        if (!empID) {
+            showToast("Please enter employee ID", "error");
+            document.getElementById("manualReqID").focus();
+            return;
+        }
+        
+        if (!date) {
+            showToast("Please select a date", "error");
+            document.getElementById("manualReqDate").focus();
+            return;
+        }
+        
+        // Allow past dates but not future dates
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const selectedDate = new Date(date);
+        selectedDate.setHours(0, 0, 0, 0);
+        
+        if (selectedDate > today) {
+            showToast("Manual request date cannot be in the future", "error");
+            document.getElementById("manualReqDate").focus();
+            return;
+        }
+        
+        if (!itemId) {
+            showToast("Please select an item", "error");
+            document.getElementById("manualReqItem").focus();
+            return;
+        }
+        
+        if (isNaN(qty) || qty <= 0) {
+            showToast("Please enter a valid quantity", "error");
+            document.getElementById("manualReqQty").focus();
+            return;
+        }
+        
+        if (!purpose) {
+            showToast("Please enter a purpose", "error");
+            document.getElementById("manualReqPurpose").focus();
+            return;
+        }
+        
+        // Verify employee name and ID match
+        try {
+            const empSnap = await get(ref(db, "employees"));
+            const employees = empSnap.val() || {};
+            const employeeMatch = Object.values(employees).find(e => 
+                e.name && e.id && 
+                e.name.toLowerCase() === name.toLowerCase() && 
+                e.id === empID
+            );
+            
+            if (!employeeMatch) {
+                showToast("❌ Name and ID do not match any registered employee.", "error");
+                return;
+            }
+        } catch (error) {
+            console.error("Error verifying employee:", error);
+            showToast("⚠️ Could not verify employee database. Proceeding anyway...", "warning");
+        }
+        
+        showLoading(true);
+        
+        // Format date properly
+        const isoDate = new Date(date).toISOString();
+        
+        if (editingRequestId) {
+            // Update existing request
+            await update(ref(db, `transactions/${editingRequestId}`), {
+                date: isoDate,
+                requester: name,
+                empID: empID,
+                itemName: itemName,
+                qty: qty,
+                purpose: purpose,
+                itemId: itemId,
+                isManual: true,
+                timestamp: Date.now(),
+                updatedBy: auth.currentUser?.email || "Admin",
+                updateTime: new Date().toISOString()
+            });
+            
+            showToast("Request updated successfully", "success");
+        } else {
+            // Add new manual request
+            await push(ref(db, "transactions"), {
+                date: isoDate,
+                requester: name,
+                empID: empID,
+                itemName: itemName,
+                qty: qty,
+                purpose: purpose,
+                itemId: itemId,
+                isManual: true,
+                timestamp: Date.now(),
+                createdBy: auth.currentUser?.email || "Admin"
+            });
+            
+            // Deduct from inventory
+            const itemRef = ref(db, `inventory/${itemId}`);
+            const itemSnap = await get(itemRef);
+            const itemData = itemSnap.val();
+            
+            if (itemData) {
+                const newQty = Math.max(0, (itemData.quantity || 0) - qty);
+                await update(itemRef, { quantity: newQty });
+                
+                // Log the transaction
+                await push(ref(db, "admin_logs"), {
+                    date: new Date().toISOString(),
+                    admin: auth.currentUser?.email || "Admin",
+                    action: "Manual Request",
+                    itemName: itemName,
+                    qty: qty,
+                    detail: `Manual request by ${name} (${empID}) - ${purpose}`,
+                    timestamp: Date.now()
+                });
+            }
+            
+            showToast("Manual request added successfully", "success");
+        }
+        
+        // Close modal and reset form
+        document.getElementById("manualRequestModal").style.display = "none";
+        document.body.classList.remove("modal-open");
+        resetManualRequestForm();
+        
+        // Refresh logs
+        loadReports();
+        
+    } catch (error) {
+        console.error("Error saving request:", error);
+        showToast("Error saving request: " + error.message, "error");
+    } finally {
+        showLoading(false);
+    }
+};
+
+// Edit request from logs
+async function editRequestFromLog(logId) {
+    try {
+        showLoading(true);
+        
+        // Get the request data
+        const requestRef = ref(db, `transactions/${logId}`);
+        const requestSnap = await get(requestRef);
+        const requestData = requestSnap.val();
+        
+        if (!requestData) {
+            showToast("Request not found", "error");
+            return;
+        }
+        
+        editingRequestId = logId;
+        
+        // Populate form
+        document.getElementById("manualRequestId").value = logId;
+        document.getElementById("manualReqName").value = requestData.requester || "";
+        document.getElementById("manualReqID").value = requestData.empID || "";
+        
+        // Format date for input (YYYY-MM-DD)
+        const requestDate = requestData.date ? new Date(requestData.date) : new Date();
+        const formattedDate = requestDate.toISOString().split('T')[0];
+        document.getElementById("manualReqDate").value = formattedDate;
+        
+        // Prevent future dates
+        const today = new Date().toISOString().split('T')[0];
+        const dateInput = document.getElementById('manualReqDate');
+        dateInput.max = today;
+        
+        document.getElementById("manualReqQty").value = requestData.qty || 1;
+        document.getElementById("manualReqPurpose").value = requestData.purpose || "";
+        document.getElementById("manualReqStatus").value = "Completed";
+        document.getElementById("saveManualRequestBtn").innerText = "Update Request";
+        
+        // Populate items and select the current one
+        await populateManualRequestItems();
+        
+        // Wait for items to populate, then select the correct one
+        setTimeout(() => {
+            const itemSelect = document.getElementById("manualReqItem");
+            if (itemSelect && requestData.itemId) {
+                itemSelect.value = requestData.itemId;
+                
+                // If item not in list, add it
+                if (!itemSelect.value) {
+                    const option = document.createElement("option");
+                    option.value = requestData.itemId;
+                    option.textContent = `${requestData.itemName} (0 available)`;
+                    option.dataset.name = requestData.itemName;
+                    option.selected = true;
+                    itemSelect.appendChild(option);
+                }
+            }
+        }, 300);
+        
+        // Show modal
+        document.getElementById("manualRequestModal").style.display = "flex";
+        document.body.classList.add("modal-open");
+        
+    } catch (error) {
+        console.error("Error loading request:", error);
+        showToast("Error loading request: " + error.message, "error");
+    } finally {
+        showLoading(false);
+    }
+}
+
+// Delete request from logs
+async function deleteRequestFromLog(logId) {
+    if (!confirm("Are you sure you want to delete this request?")) return;
+    
+    try {
+        showLoading(true);
+        
+        // Get request data first
+        const requestRef = ref(db, `transactions/${logId}`);
+        const requestSnap = await get(requestRef);
+        const requestData = requestSnap.val();
+        
+        if (!requestData) {
+            showToast("Request not found", "error");
+            return;
+        }
+        
+        // Restore inventory
+        if (requestData.itemId) {
+            const itemRef = ref(db, `inventory/${requestData.itemId}`);
+            const itemSnap = await get(itemRef);
+            const itemData = itemSnap.val();
+            
+            if (itemData) {
+                const restoredQty = (itemData.quantity || 0) + (requestData.qty || 0);
+                await update(itemRef, { quantity: restoredQty });
+            }
+        }
+        
+        // Delete the request
+        await remove(requestRef);
+        
+        // Log the deletion
+        await push(ref(db, "admin_logs"), {
+            date: new Date().toISOString(),
+            admin: auth.currentUser?.email || "Unknown",
+            action: "Delete Request",
+            itemName: `Request: ${requestData.itemName}`,
+            qty: requestData.qty || 0,
+            detail: `Deleted request by ${requestData.requester}`,
+            timestamp: Date.now()
+        });
+        
+        showToast("Request deleted successfully", "success");
+        
+        // Refresh logs
+        loadReports();
+        
+    } catch (error) {
+        console.error("Error deleting request:", error);
+        showToast("Error deleting request: " + error.message, "error");
+    } finally {
+        showLoading(false);
+    }
+}
+
 /* ================= ENHANCED INITIALIZATION ================= */
 document.addEventListener('DOMContentLoaded', () => {
   document.body.classList.add("mode-medkit");
@@ -1602,6 +1980,67 @@ document.addEventListener('DOMContentLoaded', () => {
     expiryInput.min = today;
   }
   
+  // Setup manual request modal
+  const manualRequestModal = document.getElementById("manualRequestModal");
+  const cancelManualBtn = document.getElementById("cancelManualRequestBtn");
+  
+  if (document.getElementById("addManualRequestBtn")) {
+      document.getElementById("addManualRequestBtn").onclick = () => {
+          resetManualRequestForm();
+          populateManualRequestItems();
+          manualRequestModal.style.display = "flex";
+          document.body.classList.add("modal-open");
+      };
+  }
+  
+  if (cancelManualBtn) {
+      cancelManualBtn.onclick = () => {
+          manualRequestModal.style.display = "none";
+          document.body.classList.remove("modal-open");
+          resetManualRequestForm();
+      };
+  }
+  
+  if (manualRequestModal) {
+      manualRequestModal.onclick = (e) => {
+          if (e.target === manualRequestModal) {
+              manualRequestModal.style.display = "none";
+              document.body.classList.remove("modal-open");
+              resetManualRequestForm();
+          }
+      };
+  }
+  
+  // Show/Hide manual request button based on log type
+  const logTypeSelect = document.getElementById("logTypeSelect");
+  const manualBtn = document.getElementById("addManualRequestBtn");
+  
+  if (logTypeSelect && manualBtn) {
+    // Set initial state
+    if (logTypeSelect.value === "requests") {
+        manualBtn.style.display = "inline-flex";
+    }
+    
+    // Update on change
+    logTypeSelect.onchange = function() {
+        currentLogView = this.value;
+        if (this.value === "requests") {
+            manualBtn.style.display = "inline-flex";
+        } else {
+            manualBtn.style.display = "none";
+        }
+        loadReports();
+    };
+  }
+  
+  // Set default date for manual request and prevent future dates
+  const dateInput = document.getElementById('manualReqDate');
+  if (dateInput) {
+      const today = new Date().toISOString().split('T')[0];
+      dateInput.value = today;
+      dateInput.max = today; // This prevents selecting future dates
+  }
+  
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
       e.preventDefault();
@@ -1612,6 +2051,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'l' && !auth.currentUser) {
       e.preventDefault();
       document.getElementById("loginModal").style.display = "flex";
+    }
+    
+    // Close manual request modal with Escape key
+    if (e.key === 'Escape' && manualRequestModal.style.display === 'flex') {
+      manualRequestModal.style.display = "none";
+      document.body.classList.remove("modal-open");
+      resetManualRequestForm();
     }
   });
   
