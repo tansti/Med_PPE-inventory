@@ -7,6 +7,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyALS4Sy7J5NVXG9JCmdk0ZPMaHxamJvA_Q",
   databaseURL: "https://medical-inventory-ef978-default-rtdb.firebaseio.com/",
   projectId: "medical-inventory-ef978",
+
 };
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
@@ -142,15 +143,50 @@ function validateEmployeeData(name, id) {
     return null;
 }
 
+/* ================= INPUT SANITIZATION ================= */
+function sanitizeInput(text, maxLength = 500) {
+  if (!text) return '';
+  
+  return text
+    .toString()
+    .replace(/[<>"'&]/g, '') // Remove dangerous characters
+    .trim()
+    .substring(0, maxLength); // Limit length
+}
+
 /* ================= AUTH & UI STATE ================= */
 onAuthStateChanged(auth, user => {
   const isAdmin = !!user;
   document.body.classList.toggle("is-admin", isAdmin);
-  document.getElementById("logoutBtn").style.display = isAdmin ? "block" : "none";
-  document.getElementById("loginTrigger").style.display = isAdmin ? "none" : "flex";
   
+  // Show/hide logout button
+  const logoutBtn = document.getElementById("logoutBtn");
+  if (logoutBtn) logoutBtn.style.display = isAdmin ? "block" : "none";
+  
+  // Show/hide login trigger
+  const loginTrigger = document.getElementById("loginTrigger");
+  if (loginTrigger) loginTrigger.style.display = isAdmin ? "none" : "flex";
+  
+  // Show/hide employee trigger
   const empTrigger = document.getElementById("employeeTrigger");
   if (empTrigger) empTrigger.style.display = isAdmin ? "flex" : "none";
+  
+  // Handle admin-only elements
+  const adminElements = document.querySelectorAll('.admin-only');
+  adminElements.forEach(el => {
+    if (isAdmin) {
+      // Remove the inline style if it was hiding the element
+      if (el.style.display === 'none') {
+        el.style.display = '';
+      }
+    }
+  });
+  
+  // Handle public-only elements
+  const publicElements = document.querySelectorAll('.public-only');
+  publicElements.forEach(el => {
+    el.style.display = isAdmin ? 'none' : '';
+  });
   
   // Show/hide admin filter buttons
   const filterButtons = document.querySelectorAll('.filter-buttons');
@@ -234,6 +270,8 @@ setupModal("employeeTrigger", "employeeModal", "closeEmployeeModal", () => {
 });
 setupModal("lowStockAlert", "lowStockModal", "closeLowStockModal");
 
+
+
 /* ================= ENHANCED INVENTORY SYNC ================= */
 onValue(ref(db, "inventory"), snapshot => {
   const data = snapshot.val() || {};
@@ -246,39 +284,42 @@ onValue(ref(db, "inventory"), snapshot => {
   select.innerHTML = '<option value="">Select Item...</option>';
   lowStockItems = [];
   
-  Object.keys(data).forEach(key => {
+ Object.keys(data).forEach(key => {
     const item = data[key];
     const qty = parseInt(item.quantity) || 0;
     const isLow = qty <= 5;
     const isCritical = qty <= 2;
-    const itemName = item.name || "";
+    const rawItemName = item.name || "";
     
-    if (isLow) {
-      lowStockItems.push({ name: itemName, quantity: qty, critical: isCritical });
-      const li = document.createElement("li");
-      li.style.cssText = `
-        padding: 8px 0;
-        border-bottom: 1px solid rgba(0,0,0,0.1);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      `;
-      li.innerHTML = `
-        <span><strong>${itemName}</strong></span>
-        <span style="color: ${isCritical ? '#ef4444' : '#f59e0b'}; font-weight: bold;">
-          ${qty} left${isCritical ? ' ⚠️' : ''}
-        </span>
-      `;
-      lowStockList.appendChild(li);
-    }
+    // Remove (PPE) extension from display name
+    const displayName = rawItemName.replace(/\s*\(PPE\)\s*$/i, '').trim();
     
-    // Determine category
-    const lowerName = itemName.toLowerCase();
+    // Determine category - check if original name had (PPE) or other PPE indicators
+    const lowerName = rawItemName.toLowerCase();
     const isPPE = lowerName.includes('(ppe)') || 
-                  ['mask', 'gloves', 'gown', 'shield', 'ppe', 'face shield', 'apron', 'coverall', 'safety', 'protective'].some(w => 
-                    lowerName.includes(w)
+                  ['mask', 'gloves', 'gown', 'shield', 'ppe', 'face shield', 'apron', 'coverall', 'safety', 'protective', 'hard hat', 'helmet'].some(w => 
+                      lowerName.includes(w)
                   ) ||
                   (item.category && item.category === 'ppe');
+    
+    if (isLow) {
+        lowStockItems.push({ name: rawItemName, quantity: qty, critical: isCritical });
+        const li = document.createElement("li");
+        li.style.cssText = `
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        `;
+        li.innerHTML = `
+            <span><strong>${displayName}</strong></span>
+            <span style="color: ${isCritical ? '#ef4444' : '#f59e0b'}; font-weight: bold;">
+                ${qty} left${isCritical ? ' ⚠️' : ''}
+            </span>
+        `;
+        lowStockList.appendChild(li);
+    }
     
     const categoryClass = isPPE ? 'ppe' : 'medkit';
     const categoryIcon = isPPE ? '🛡️' : '💊';
@@ -289,37 +330,38 @@ onValue(ref(db, "inventory"), snapshot => {
     tr.dataset.quantity = qty;
     
     tr.innerHTML = `
-      <td>
-        <span class="category-badge ${categoryClass}">${categoryIcon} ${isPPE ? 'PPE' : 'Medkit'}</span>
-        ${itemName}
-      </td>
-      <td style="text-align:center">
-        <div class="stock-level">
-          <span class="stock-indicator ${isCritical ? 'low' : isLow ? 'low' : 'ok'}"></span>
-          <span class="stock-qty">${qty}</span>
-          ${isCritical ? '<span style="color:#ef4444; font-size:0.8rem; margin-left:4px;">(Critical)</span>' : 
-            isLow ? '<span style="color:#f59e0b; font-size:0.8rem; margin-left:4px;">(Low)</span>' : ''}
-        </div>
-      </td>
-      <td class="admin-only" style="text-align:center">
-        <div class="table-actions">
-          <button class="btn-table btn-edit-table btn-edit" data-id="${key}" title="Edit Item">
-            <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-            </svg>
-          </button>
-          <button class="btn-table btn-delete-table btn-delete" data-id="${key}" title="Delete Item">
-            <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-            </svg>
-          </button>
-        </div>
-      </td>
+        <td>
+            <span class="category-badge ${categoryClass}">${categoryIcon} ${isPPE ? 'PPE' : 'Medkit'}</span>
+            ${displayName}
+        </td>
+        <td style="text-align:center">
+            <div class="stock-level">
+                <span class="stock-indicator ${isCritical ? 'low' : isLow ? 'low' : 'ok'}"></span>
+                <span class="stock-qty">${qty}</span>
+                ${isCritical ? '<span style="color:#ef4444; font-size:0.8rem; margin-left:4px;">(Critical)</span>' : 
+                    isLow ? '<span style="color:#f59e0b; font-size:0.8rem; margin-left:4px;">(Low)</span>' : ''}
+            </div>
+        </td>
+        <td class="admin-only" style="text-align:center">
+            <div class="table-actions">
+                <button class="btn-table btn-edit-table btn-edit" data-id="${key}" title="Edit Item" aria-label="Edit ${displayName}">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                    </svg>
+                </button>
+                <button class="btn-table btn-delete-table btn-delete" data-id="${key}" title="Delete Item" aria-label="Delete ${displayName}">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                    </svg>
+                </button>
+            </div>
+        </td>
     `;
     
     tbody.appendChild(tr);
-    select.innerHTML += `<option value="${key}" class="cat-${categoryClass}">${itemName} (${qty} available)</option>`;
-  });
+    // Use displayName in dropdown too
+    select.innerHTML += `<option value="${key}" class="cat-${categoryClass}">${displayName} (${qty} available)</option>`;
+});
   
   // Apply current filter after inventory loads
   applyStockFilter();
@@ -607,10 +649,10 @@ document.getElementById("saveEmpBtn").onclick = async () => {
 /* ================= ENHANCED REQUEST VALIDATION ================= */
 document.getElementById("reqBtn").onclick = async () => {
   const itemId = document.getElementById("reqItemSelect").value;
-  const inputName = document.getElementById("reqName").value.trim();
-  const inputID = document.getElementById("reqID").value.trim();
-  const qty = parseInt(document.getElementById("reqQty").value);
-  const purpose = document.getElementById("reqPurpose").value.trim();
+const inputName = sanitizeInput(document.getElementById("reqName").value);
+const inputID = sanitizeInput(document.getElementById("reqID").value, 50);
+const qty = parseInt(document.getElementById("reqQty").value);
+const purpose = sanitizeInput(document.getElementById("reqPurpose").value);
   
   // Validate all fields
   if (!itemId) {
@@ -913,15 +955,29 @@ document.getElementById("inventoryBody").addEventListener("click", async e => {
   
   if (btn.classList.contains("btn-edit")) {
     document.getElementById("editItemId").value = id;
-    const itemName = tr.querySelector('td').innerText.replace(/^.*💊.*🛡️\s*/, '').trim();
-    document.getElementById("itemName").value = itemName;
     
-    // Extract quantity
-    const qtyText = tr.querySelector('.stock-qty').innerText;
-    const qty = parseInt(qtyText) || 0;
-    document.getElementById("itemQty").value = qty;
-    
-    document.getElementById("saveBtn").innerText = "Update Item";
+    // Get the original item data from Firebase to preserve the actual stored name
+    try {
+      showLoading(true);
+      const itemRef = ref(db, `inventory/${id}`);
+      const itemSnap = await get(itemRef);
+      const itemData = itemSnap.val();
+      
+      if (itemData) {
+        // Use the actual stored name from Firebase
+        const rawName = itemData.name || '';
+        // Remove any existing "(PPE)" suffix for editing (it will be re-added if needed)
+        const displayName = rawName.replace(/\s*\(PPE\)\s*$/i, '').trim();
+        
+        document.getElementById("itemName").value = displayName;
+        document.getElementById("itemQty").value = parseInt(itemData.quantity) || 0;
+        document.getElementById("saveBtn").innerText = "Update Item";
+      }
+    } catch (error) {
+      showToast("Error loading item data: " + error.message, "error");
+    } finally {
+      showLoading(false);
+    }
     
     // Scroll to form with smooth animation
     document.querySelector('.card.admin-only').scrollIntoView({ 
@@ -930,17 +986,29 @@ document.getElementById("inventoryBody").addEventListener("click", async e => {
     });
     
   } else if (btn.classList.contains("btn-delete")) {
-    const name = tr.querySelector('td').innerText.replace(/^.*💊.*🛡️\s*/, '').trim();
-    if(confirm(`Are you sure you want to delete "${name}" from inventory?`)) {
-      try {
-        showLoading(true);
-        
-        // Log the deletion
+    // Get the item name from Firebase to ensure we have the correct name
+    try {
+      showLoading(true);
+      const itemRef = ref(db, `inventory/${id}`);
+      const itemSnap = await get(itemRef);
+      const itemData = itemSnap.val();
+      
+      if (!itemData) {
+        showToast("Item not found in database", "error");
+        return;
+      }
+      
+      const rawName = itemData.name || '';
+      // Remove "(PPE)" suffix for confirmation message
+      const displayName = rawName.replace(/\s*\(PPE\)\s*$/i, '').trim();
+      
+      if (confirm(`Are you sure you want to delete "${displayName}" from inventory?`)) {
+        // Log the deletion first
         await push(ref(db, "admin_logs"), {
           date: new Date().toISOString(),
-          admin: auth.currentUser.email,
+          admin: auth.currentUser?.email || "Unknown",
           action: "Delete",
-          itemName: name,
+          itemName: rawName, // Log the full name including (PPE) if present
           qty: 0,
           timestamp: Date.now()
         });
@@ -948,13 +1016,12 @@ document.getElementById("inventoryBody").addEventListener("click", async e => {
         // Remove from inventory
         await remove(ref(db, `inventory/${id}`));
         
-        showToast(`"${name}" deleted from inventory`, "success");
-        
-      } catch (error) {
-        showToast("Error deleting item: " + error.message, "error");
-      } finally {
-        showLoading(false);
+        showToast(`"${displayName}" deleted from inventory`, "success");
       }
+    } catch (error) {
+      showToast("Error deleting item: " + error.message, "error");
+    } finally {
+      showLoading(false);
     }
   }
 });
