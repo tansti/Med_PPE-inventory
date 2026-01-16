@@ -7,7 +7,6 @@ const firebaseConfig = {
   apiKey: "AIzaSyALS4Sy7J5NVXG9JCmdk0ZPMaHxamJvA_Q",
   databaseURL: "https://medical-inventory-ef978-default-rtdb.firebaseio.com/",
   projectId: "medical-inventory-ef978",
-
 };
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
@@ -149,9 +148,9 @@ function sanitizeInput(text, maxLength = 500) {
   
   return text
     .toString()
-    .replace(/[<>"'&]/g, '') // Remove dangerous characters
+    .replace(/[<>"'&]/g, '')
     .trim()
-    .substring(0, maxLength); // Limit length
+    .substring(0, maxLength);
 }
 
 /* ================= AUTH & UI STATE ================= */
@@ -175,7 +174,6 @@ onAuthStateChanged(auth, user => {
   const adminElements = document.querySelectorAll('.admin-only');
   adminElements.forEach(el => {
     if (isAdmin) {
-      // Remove the inline style if it was hiding the element
       if (el.style.display === 'none') {
         el.style.display = '';
       }
@@ -208,7 +206,6 @@ onAuthStateChanged(auth, user => {
     applyStockFilter();
     showToast(`Welcome back, ${user.email.split('@')[0]}!`, "success");
   } else {
-    // Initialize filter state for non-admin users
     currentStockFilter = isPPEMode ? 'ppe' : 'medkit';
     applyStockFilter();
   }
@@ -223,8 +220,13 @@ const setupModal = (triggerId, modalId, closeId, onCloseCallback = null, clearFi
   if (trigger && modal) {
     trigger.onclick = () => {
       modal.style.display = "flex";
-      document.body.style.overflow = "hidden";
-      modal.style.animation = "modalFadeIn 0.3s ease";
+      document.body.classList.add("modal-open");
+      
+      // Force reflow for animation
+      modal.offsetHeight;
+      
+      // Add animation class
+      modal.classList.add("modal-visible");
     };
   }
   
@@ -252,8 +254,9 @@ const setupModal = (triggerId, modalId, closeId, onCloseCallback = null, clearFi
 };
 
 function closeModal(modal, clearFieldsOnClose, onCloseCallback) {
-  modal.style.display = "none"; 
-  document.body.style.overflow = "auto";
+  modal.style.display = "none";
+  document.body.classList.remove("modal-open");
+  modal.classList.remove("modal-visible");
   
   if (clearFieldsOnClose) {
     document.getElementById("adminEmail").value = "";
@@ -269,8 +272,6 @@ setupModal("employeeTrigger", "employeeModal", "closeEmployeeModal", () => {
   resetEmployeeForm();
 });
 setupModal("lowStockAlert", "lowStockModal", "closeLowStockModal");
-
-
 
 /* ================= ENHANCED INVENTORY SYNC ================= */
 onValue(ref(db, "inventory"), snapshot => {
@@ -294,7 +295,7 @@ onValue(ref(db, "inventory"), snapshot => {
     // Remove (PPE) extension from display name
     const displayName = rawItemName.replace(/\s*\(PPE\)\s*$/i, '').trim();
     
-    // Determine category - check if original name had (PPE) or other PPE indicators
+    // Determine category
     const lowerName = rawItemName.toLowerCase();
     const isPPE = lowerName.includes('(ppe)') || 
                   ['mask', 'gloves', 'gown', 'shield', 'ppe', 'face shield', 'apron', 'coverall', 'safety', 'protective', 'hard hat', 'helmet'].some(w => 
@@ -359,18 +360,15 @@ onValue(ref(db, "inventory"), snapshot => {
     `;
     
     tbody.appendChild(tr);
-    // Use displayName in dropdown too
     select.innerHTML += `<option value="${key}" class="cat-${categoryClass}">${displayName} (${qty} available)</option>`;
 });
   
-  // Apply current filter after inventory loads
   applyStockFilter();
   
   const bell = document.getElementById("lowStockAlert");
   if(bell) {
     bell.style.display = (auth.currentUser && lowStockItems.length > 0) ? "flex" : "none";
     
-    // Add notification badge
     const criticalCount = lowStockItems.filter(item => item.critical).length;
     if (criticalCount > 0) {
       let badge = bell.querySelector('.notification-badge');
@@ -427,7 +425,6 @@ function applyStockFilter() {
   const rows = document.querySelectorAll('#inventoryBody tr');
   const options = document.querySelectorAll('#reqItemSelect option');
   
-  // Apply filter to table rows
   rows.forEach(tr => {
     const isPPERow = tr.classList.contains('cat-ppe');
     const isMedkitRow = tr.classList.contains('cat-medkit');
@@ -445,10 +442,9 @@ function applyStockFilter() {
     }
   });
   
-  // Apply filter to dropdown options
-  if (!auth.currentUser) { // Only for non-admin users
+  if (!auth.currentUser) {
     options.forEach(option => {
-      if (option.value === "") return; // Skip the default option
+      if (option.value === "") return;
       
       const isPPEOption = option.classList.contains('cat-ppe');
       const isMedkitOption = option.classList.contains('cat-medkit');
@@ -496,7 +492,6 @@ if (toggleBtn) {
   toggleBtn.onclick = () => {
     isPPEMode = !isPPEMode;
     
-    // Update body class for CSS filtering
     if (isPPEMode) {
       document.body.classList.add("mode-ppe");
       document.body.classList.remove("mode-medkit");
@@ -511,7 +506,6 @@ if (toggleBtn) {
       toggleBtn.title = "Switch to PPE Request";
     }
     
-    // Update filter for non-admin users
     if (!auth.currentUser) {
       currentStockFilter = isPPEMode ? 'ppe' : 'medkit';
       applyStockFilter();
@@ -555,13 +549,11 @@ function loadEmployees() {
       tbody.appendChild(row);
     });
     
-    // Attach event listeners to employee action buttons
     attachEmployeeEventListeners();
   });
 }
 
 function attachEmployeeEventListeners() {
-  // Edit buttons
   document.querySelectorAll('.btn-edit-emp').forEach(btn => {
     btn.onclick = (e) => {
       e.stopPropagation();
@@ -572,7 +564,6 @@ function attachEmployeeEventListeners() {
     };
   });
   
-  // Delete buttons
   document.querySelectorAll('.btn-delete-emp').forEach(btn => {
     btn.onclick = (e) => {
       e.stopPropagation();
@@ -589,7 +580,6 @@ function editEmployee(key, name, id) {
   document.getElementById("saveEmpBtn").innerText = "Update Employee";
   document.getElementById("empNameAdmin").focus();
   
-  // Scroll to form
   document.getElementById("employeeModal").querySelector('.admin-form-grid').scrollIntoView({ 
     behavior: 'smooth', 
     block: 'start' 
@@ -621,7 +611,6 @@ document.getElementById("saveEmpBtn").onclick = async () => {
   const name = document.getElementById("empNameAdmin").value.trim();
   const id = document.getElementById("empIDAdmin").value.trim();
   
-  // Validate input
   const validationError = validateEmployeeData(name, id);
   if (validationError) {
     showToast(validationError, "error");
@@ -654,7 +643,6 @@ const inputID = sanitizeInput(document.getElementById("reqID").value, 50);
 const qty = parseInt(document.getElementById("reqQty").value);
 const purpose = sanitizeInput(document.getElementById("reqPurpose").value);
   
-  // Validate all fields
   if (!itemId) {
     showToast("Please select an item from the list", "error");
     return;
@@ -683,7 +671,6 @@ const purpose = sanitizeInput(document.getElementById("reqPurpose").value);
   try {
     showLoading(true);
     
-    // Validate employee
     const empSnap = await get(ref(db, "employees"));
     const employees = empSnap.val() || {};
     const employeeMatch = Object.values(employees).find(e => 
@@ -697,7 +684,6 @@ const purpose = sanitizeInput(document.getElementById("reqPurpose").value);
       return;
     }
     
-    // Check stock availability
     const itemRef = ref(db, `inventory/${itemId}`);
     const itemSnap = await get(itemRef);
     const itemData = itemSnap.val();
@@ -712,12 +698,10 @@ const purpose = sanitizeInput(document.getElementById("reqPurpose").value);
       return;
     }
     
-    // Update inventory
     await update(itemRef, { 
       quantity: itemData.quantity - qty 
     });
     
-    // Log transaction
     await push(ref(db, "transactions"), {
       date: new Date().toISOString(),
       requester: inputName,
@@ -731,7 +715,6 @@ const purpose = sanitizeInput(document.getElementById("reqPurpose").value);
     
     showToast("✅ Request Granted! Item issued successfully.", "success");
     
-    // Clear form with animation
     const form = document.getElementById("requestFields");
     form.style.opacity = "0.5";
     setTimeout(() => {
@@ -772,14 +755,12 @@ function applyLogFilter() {
   
   if (!container) return;
   
-  // Filter by date first
   let filtered = allLogs.filter(log => {
     if (!log.date) return false;
     if (!filter) return true;
     return log.date.startsWith(filter);
   });
   
-  // Apply stock filter to logs
   filtered = filtered.filter(log => {
     if (!log.itemName) return false;
     
@@ -820,7 +801,7 @@ function applyLogFilter() {
     <th style="width:45%">Detail</th>
   </tr></thead><tbody>`;
   
-  filtered.slice(0, 100).forEach(log => { // Limit to 100 logs for performance
+  filtered.slice(0, 100).forEach(log => {
     const itemName = log.itemName || '';
     const isPPE = itemName.toLowerCase().includes('(ppe)');
     const categoryTag = isPPE ? ' 🛡️' : ' 💊';
@@ -828,7 +809,6 @@ function applyLogFilter() {
     const formattedDate = isNaN(date.getTime()) ? 'Invalid Date' : date.toLocaleDateString();
     const formattedTime = isNaN(date.getTime()) ? '' : date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     
-    // Determine action type
     const action = log.action || 'REQUEST';
     const actionClass = action === 'Add' ? 'add' : 
                        action === 'Edit' ? 'edit' : 
@@ -872,7 +852,6 @@ function applyLogFilter() {
   container.innerHTML = html;
 }
 
-// Update log event listeners
 document.getElementById("logTypeSelect").onchange = e => {
   currentLogView = e.target.value;
   loadReports();
@@ -888,14 +867,12 @@ document.getElementById("downloadCsvBtn").onclick = () => {
   
   const filter = document.getElementById("logFilterMonth")?.value || "";
   
-  // Filter by date first
   let filtered = allLogs.filter(log => {
     if (!log.date) return false;
     if (!filter) return true;
     return log.date.startsWith(filter);
   });
   
-  // Apply stock filter to logs
   filtered = filtered.filter(log => {
     if (!log.itemName) return false;
     
@@ -956,7 +933,6 @@ document.getElementById("inventoryBody").addEventListener("click", async e => {
   if (btn.classList.contains("btn-edit")) {
     document.getElementById("editItemId").value = id;
     
-    // Get the original item data from Firebase to preserve the actual stored name
     try {
       showLoading(true);
       const itemRef = ref(db, `inventory/${id}`);
@@ -964,9 +940,7 @@ document.getElementById("inventoryBody").addEventListener("click", async e => {
       const itemData = itemSnap.val();
       
       if (itemData) {
-        // Use the actual stored name from Firebase
         const rawName = itemData.name || '';
-        // Remove any existing "(PPE)" suffix for editing (it will be re-added if needed)
         const displayName = rawName.replace(/\s*\(PPE\)\s*$/i, '').trim();
         
         document.getElementById("itemName").value = displayName;
@@ -979,14 +953,12 @@ document.getElementById("inventoryBody").addEventListener("click", async e => {
       showLoading(false);
     }
     
-    // Scroll to form with smooth animation
     document.querySelector('.card.admin-only').scrollIntoView({ 
       behavior: 'smooth', 
       block: 'center' 
     });
     
   } else if (btn.classList.contains("btn-delete")) {
-    // Get the item name from Firebase to ensure we have the correct name
     try {
       showLoading(true);
       const itemRef = ref(db, `inventory/${id}`);
@@ -999,21 +971,18 @@ document.getElementById("inventoryBody").addEventListener("click", async e => {
       }
       
       const rawName = itemData.name || '';
-      // Remove "(PPE)" suffix for confirmation message
       const displayName = rawName.replace(/\s*\(PPE\)\s*$/i, '').trim();
       
       if (confirm(`Are you sure you want to delete "${displayName}" from inventory?`)) {
-        // Log the deletion first
         await push(ref(db, "admin_logs"), {
           date: new Date().toISOString(),
           admin: auth.currentUser?.email || "Unknown",
           action: "Delete",
-          itemName: rawName, // Log the full name including (PPE) if present
+          itemName: rawName,
           qty: 0,
           timestamp: Date.now()
         });
         
-        // Remove from inventory
         await remove(ref(db, `inventory/${id}`));
         
         showToast(`"${displayName}" deleted from inventory`, "success");
@@ -1048,7 +1017,6 @@ document.getElementById("saveBtn").onclick = async () => {
     showLoading(true);
     
     if (id) {
-      // Update existing item
       await update(ref(db, `inventory/${id}`), { 
         name, 
         quantity: qty 
@@ -1063,7 +1031,6 @@ document.getElementById("saveBtn").onclick = async () => {
         timestamp: Date.now()
       });
       
-      // Reset form
       ["editItemId", "itemName", "itemQty"].forEach(i => {
         document.getElementById(i).value = "";
       });
@@ -1072,7 +1039,6 @@ document.getElementById("saveBtn").onclick = async () => {
       showToast("Inventory Updated Successfully!", "success");
       
     } else {
-      // New item - show category selection
       pendingItemData = { name, qty };
       document.getElementById("categoryModal").style.display = "flex";
     }
@@ -1121,7 +1087,6 @@ async function finalizeAddition(category) {
     
     document.getElementById("categoryModal").style.display = "none";
     
-    // Reset form
     ["itemName", "itemQty"].forEach(i => {
       document.getElementById(i).value = "";
     });
@@ -1163,7 +1128,6 @@ document.getElementById("loginBtn").onclick = async () => {
     showLoading(true);
     await signInWithEmailAndPassword(auth, email, password);
     document.getElementById("loginModal").style.display = "none";
-    // Clear credentials
     document.getElementById("adminEmail").value = "";
     document.getElementById("adminPass").value = "";
     
@@ -1183,7 +1147,6 @@ document.getElementById("loginBtn").onclick = async () => {
         errorMessage += error.message;
     }
     showToast(errorMessage, "error");
-    // Clear password on failed login
     document.getElementById("adminPass").value = "";
   } finally {
     showLoading(false);
@@ -1194,9 +1157,8 @@ document.getElementById("logoutBtn").onclick = () => {
   if(confirm("Are you sure you want to logout?")) {
     showLoading(true);
     signOut(auth).then(() => {
-      // Reset to medkit mode when logging out
       isPPEMode = false;
-      currentStockFilter = 'medkit'; // Non-admin default
+      currentStockFilter = 'medkit';
       
       document.body.classList.add("mode-medkit");
       document.body.classList.remove("mode-ppe");
@@ -1215,39 +1177,33 @@ document.getElementById("logoutBtn").onclick = () => {
 
 /* ================= ENHANCED INITIALIZATION ================= */
 document.addEventListener('DOMContentLoaded', () => {
-  // Start in medkit mode by default
   document.body.classList.add("mode-medkit");
   document.getElementById("formTitle").innerText = "💊 Medkit Request Form";
   document.getElementById("toggleIcon").innerText = "🛡️";
   if (toggleBtn) toggleBtn.title = "Switch to PPE Request";
   
-  // Initialize stock filter buttons if admin
   if (auth.currentUser) {
     updateStockFilterButtons();
   }
   
-  // Add enter key support for login
   document.getElementById("adminPass")?.addEventListener("keypress", (e) => {
     if (e.key === "Enter") {
       document.getElementById("loginBtn").click();
     }
   });
   
-  // Add enter key support for employee form
   document.getElementById("empIDAdmin")?.addEventListener("keypress", (e) => {
     if (e.key === "Enter") {
       document.getElementById("saveEmpBtn").click();
     }
   });
   
-  // Add enter key support for inventory form
   document.getElementById("itemQty")?.addEventListener("keypress", (e) => {
     if (e.key === "Enter") {
       document.getElementById("saveBtn").click();
     }
   });
   
-  // Auto-focus first input in modal when opened
   document.querySelectorAll('.modal').forEach(modal => {
     modal.addEventListener('shown', () => {
       const input = modal.querySelector('input:not([type="hidden"])');
@@ -1255,26 +1211,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
   
-  // Add keyboard shortcuts
   document.addEventListener('keydown', (e) => {
-    // Ctrl/Cmd + F to focus search/filter
     if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
       e.preventDefault();
       const searchInput = document.querySelector('input[type="search"], input[placeholder*="search"]');
       if (searchInput) searchInput.focus();
     }
     
-    // Ctrl/Cmd + L to open login modal (when not logged in)
     if ((e.ctrlKey || e.metaKey) && e.key === 'l' && !auth.currentUser) {
       e.preventDefault();
       document.getElementById("loginModal").style.display = "flex";
     }
   });
   
-  // Add offline detection
   window.addEventListener('online', () => {
     showToast("Back online. Syncing data...", "success");
-    // Reload data when coming back online
     setTimeout(() => location.reload(), 1000);
   });
   
