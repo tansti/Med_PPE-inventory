@@ -19,6 +19,7 @@
             </div>
             <div id="authBar">
                 <div id="lowStockAlert" class="alert-badge admin-only" title="Low Stock Items">🔔</div>
+                <div id="expiryAlert" class="alert-badge admin-only" title="Expiring Items" style="display:none;">⏰</div>
                 <div id="loginTrigger" class="avatar-circle" title="Admin Login">
                     <svg viewBox="0 0 24 24" width="35" height="35" fill="currentColor">
                         <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
@@ -94,6 +95,22 @@
             </div>
         </div>
 
+        <div id="expiryAlertModal" class="modal">
+            <div class="modal-content">
+                <h3 style="color: #dc2626;">⚠️ Expiring/Expired Items Alert</h3>
+                <div id="expiryFilterTabs" style="display: flex; gap: 8px; margin-bottom: 15px;">
+                    <button class="filter-btn active" data-filter="expired">Expired</button>
+                    <button class="filter-btn" data-filter="expiring">Expiring Soon</button>
+                    <button class="filter-btn" data-filter="all">All Items</button>
+                </div>
+                <div id="expiryAlertList" style="max-height: 300px; overflow-y: auto;"></div>
+                <div style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
+                    <button id="printExpiryReport" class="btn-primary">📄 Print Report</button>
+                    <button id="closeExpiryAlertModal" class="btn-text">Close</button>
+                </div>
+            </div>
+        </div>
+
       <section class="card public-only" id="requestSection">
           <div class="card-header-flex">
               <h2 id="formTitle">Medkit Request Form</h2>
@@ -103,6 +120,12 @@
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-5.5-2.5l7.5-7.5-7.5-7.5L5 2l9 9-9 9z"/>
                   </svg>
               </button>
+          </div>
+          <div class="expiry-info" id="itemExpiryInfo" 
+               style="font-size: 0.85rem; color: #64748b; padding: 8px 12px; 
+                      background: rgba(59, 130, 246, 0.1); border-radius: 8px; 
+                      margin-top: -10px; margin-bottom: 15px; display: none;">
+              📅 Expiry Date: <span id="expiryDateDisplay"></span>
           </div>
           <div class="request-grid transition-fade" id="requestFields">
               <input type="text" id="reqName" placeholder="Full Name" aria-label="Full Name">
@@ -120,7 +143,13 @@
                 <input type="hidden" id="editItemId">
                 <input type="text" id="itemName" placeholder="Item Name" aria-label="Item Name">
                 <input type="number" id="itemQty" placeholder="Quantity" aria-label="Quantity">
+                <input type="date" id="itemExpiry" placeholder="Expiry Date (Optional)" 
+                       aria-label="Expiry Date (Optional for Medkit items)" 
+                       min="<?php echo date('Y-m-d'); ?>">
                 <button id="saveBtn" class="btn-primary">Add / Update</button>
+            </div>
+            <div class="form-note" style="font-size: 0.85rem; color: #64748b; margin-top: 8px;">
+                ⓘ Expiry date is only applicable for Medkit items
             </div>
         </section>
 
@@ -138,8 +167,9 @@
               <thead>
                 <tr>
                   <th style="width: 50%; text-align: left;">DESCRIPTION</th>
-                  <th style="width: 30%; text-align: center;">LEVEL</th>
-                  <th class="admin-only" style="width: 20%; text-align: center;">ACTIONS</th>
+                  <th style="width: 20%; text-align: center;">LEVEL</th>
+                  <th style="width: 15%; text-align: center;">EXPIRY</th>
+                  <th class="admin-only" style="width: 15%; text-align: center;">ACTIONS</th>
                 </tr>
               </thead>
               <tbody id="inventoryBody"></tbody>
