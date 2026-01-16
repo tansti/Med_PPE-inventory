@@ -15,6 +15,7 @@ const auth = getAuth(app);
 /* ================= GLOBAL STATE ================= */
 let allLogs = [];
 let lowStockItems = [];
+let expiringItems = [];
 let currentLogView = "requests";
 let currentStockFilter = 'all';
 let isPPEMode = false;
@@ -153,24 +154,293 @@ function sanitizeInput(text, maxLength = 500) {
     .substring(0, maxLength);
 }
 
+/* ================= EXPIRY MANAGEMENT FUNCTIONS ================= */
+function getExpiryStatus(expiryDate) {
+    if (!expiryDate) return { status: 'none', days: null };
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expiry = new Date(expiryDate);
+    const diffTime = expiry - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) {
+        return { status: 'expired', days: Math.abs(diffDays) };
+    } else if (diffDays <= 30) {
+        return { status: 'warning', days: diffDays };
+    } else {
+        return { status: 'valid', days: diffDays };
+    }
+}
+
+function formatExpiryDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+    });
+}
+
+function checkExpiringItems(inventoryData) {
+    expiringItems = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    Object.keys(inventoryData).forEach(key => {
+        const item = inventoryData[key];
+        if (item.expiryDate) {
+            const expiryDate = new Date(item.expiryDate);
+            const diffTime = expiryDate - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays <= 60) {
+                expiringItems.push({
+                    id: key,
+                    name: item.name,
+                    quantity: item.quantity,
+                    expiryDate: item.expiryDate,
+                    daysLeft: diffDays,
+                    isExpired: diffDays < 0
+                });
+            }
+        }
+    });
+    
+    expiringItems.sort((a, b) => a.daysLeft - b.daysLeft);
+    
+    updateExpiryAlertBadge();
+}
+
+function updateExpiryAlertBadge() {
+    const expiryAlert = document.getElementById('expiryAlert');
+    if (expiryAlert && auth.currentUser) {
+        const criticalCount = expiringItems.filter(item => item.daysLeft < 0 || item.daysLeft <= 7).length;
+        const totalCount = expiringItems.length;
+        
+        if (totalCount > 0) {
+            expiryAlert.style.display = 'flex';
+            expiryAlert.classList.toggle('critical', criticalCount > 0);
+            
+            let badge = expiryAlert.querySelector('.expiry-badge');
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'expiry-badge';
+                badge.style.cssText = `
+                    position: absolute;
+                    top: -5px;
+                    right: -5px;
+                    background: ${criticalCount > 0 ? '#ef4444' : '#f59e0b'};
+                    color: white;
+                    border-radius: 50%;
+                    width: 18px;
+                    height: 18px;
+                    font-size: 10px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: bold;
+                `;
+                expiryAlert.style.position = 'relative';
+                expiryAlert.appendChild(badge);
+            }
+            badge.textContent = criticalCount > 0 ? criticalCount : totalCount;
+        } else {
+            expiryAlert.style.display = 'none';
+            const badge = expiryAlert.querySelector('.expiry-badge');
+            if (badge) badge.remove();
+        }
+    }
+}
+
+function showExpiryAlert(filterType = 'expired') {
+    const modal = document.getElementById('expiryAlertModal');
+    const list = document.getElementById('expiryAlertList');
+    
+    if (!modal || !list) return;
+    
+    let filteredItems = expiringItems;
+    if (filterType === 'expired') {
+        filteredItems = expiringItems.filter(item => item.daysLeft < 0);
+    } else if (filterType === 'expiring') {
+        filteredItems = expiringItems.filter(item => item.daysLeft >= 0 && item.daysLeft <= 30);
+    }
+    
+    list.innerHTML = '';
+    
+    if (filteredItems.length === 0) {
+        list.innerHTML = `
+            <div style="text-align: center; padding: 40px 20px; color: #64748b;">
+                <svg width="48" height="48" fill="currentColor" viewBox="0 0 24 24" style="opacity: 0.5;">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                <h4 style="margin: 16px 0 8px 0;">No ${filterType} items found</h4>
+                <p>All items are within acceptable expiry range</p>
+            </div>
+        `;
+    } else {
+        filteredItems.forEach(item => {
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <div class="expiry-item-info">
+                    <span class="expiry-item-name">${item.name.replace(/\s*\(PPE\)\s*$/i, '')}</span>
+                    <span class="expiry-item-date">
+                        📅 ${formatExpiryDate(item.expiryDate)}
+                        <span class="expiry-status ${item.daysLeft < 0 ? 'expiry-expired' : 'expiry-warning'}">
+                            ${item.daysLeft < 0 ? `Expired ${Math.abs(item.daysLeft)} days ago` : 
+                              `${item.daysLeft} days left`}
+                        </span>
+                    </span>
+                </div>
+                <span class="expiry-item-qty">${item.quantity} units</span>
+            `;
+            list.appendChild(li);
+        });
+    }
+    
+    modal.style.display = 'flex';
+    document.body.classList.add('modal-open');
+}
+
+function updateInventoryExpiryDisplay() {
+    const rows = document.querySelectorAll('#inventoryBody tr');
+    
+    rows.forEach(row => {
+        const qtyCell = row.querySelector('.stock-level');
+        let expiryCell = row.querySelector('.expiry-cell');
+        
+        if (!expiryCell) {
+            expiryCell = document.createElement('td');
+            expiryCell.className = 'expiry-cell';
+            if (qtyCell) {
+                row.insertBefore(expiryCell, qtyCell.nextSibling);
+            }
+        }
+        
+        const isMedkit = row.classList.contains('cat-medkit');
+        const expiryDate = row.dataset.expiry || null;
+        
+        if (isMedkit && expiryDate) {
+            const status = getExpiryStatus(expiryDate);
+            expiryCell.innerHTML = `
+                <div class="expiry-date ${status.status}">
+                    ${formatExpiryDate(expiryDate)}
+                    ${status.days !== null ? `<span class="expiry-status expiry-${status.status}">
+                        ${status.status === 'expired' ? 'Expired' : 
+                          status.status === 'warning' ? `${status.days}d left` : 
+                          'Valid'}
+                    </span>` : ''}
+                </div>
+            `;
+        } else if (isMedkit) {
+            expiryCell.innerHTML = '<div class="expiry-date">-</div>';
+        } else {
+            expiryCell.innerHTML = '<div class="expiry-date">N/A</div>';
+        }
+    });
+}
+
+function printExpiryReport() {
+    const today = new Date().toLocaleDateString();
+    const criticalItems = expiringItems.filter(item => item.daysLeft < 0 || item.daysLeft <= 7);
+    const warningItems = expiringItems.filter(item => item.daysLeft > 7 && item.daysLeft <= 30);
+    
+    let printContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Medication Expiry Report - ${today}</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                h1 { color: #333; }
+                table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+                th { background-color: #f5f5f5; }
+                .critical { background-color: #fee; }
+                .warning { background-color: #ffd; }
+                .summary { background-color: #f0f8ff; padding: 15px; border-radius: 5px; margin: 20px 0; }
+            </style>
+        </head>
+        <body>
+            <h1>Medication Expiry Report</h1>
+            <p>Generated on: ${today}</p>
+            
+            <div class="summary">
+                <h3>Summary</h3>
+                <p><strong>Critical (Expired/≤7 days):</strong> ${criticalItems.length} items</p>
+                <p><strong>Warning (8-30 days):</strong> ${warningItems.length} items</p>
+                <p><strong>Total Expiring Items:</strong> ${expiringItems.length} items</p>
+            </div>
+            
+            <h3>Expiring Items</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item Name</th>
+                        <th>Quantity</th>
+                        <th>Expiry Date</th>
+                        <th>Status</th>
+                        <th>Days Remaining</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    expiringItems.forEach(item => {
+        const status = item.daysLeft < 0 ? 'Expired' : 
+                      item.daysLeft <= 7 ? 'Critical' : 'Warning';
+        const rowClass = item.daysLeft < 0 ? 'critical' : 
+                        item.daysLeft <= 7 ? 'critical' : 'warning';
+        
+        printContent += `
+            <tr class="${rowClass}">
+                <td>${item.name.replace(/\s*\(PPE\)\s*$/i, '')}</td>
+                <td>${item.quantity}</td>
+                <td>${formatExpiryDate(item.expiryDate)}</td>
+                <td>${status}</td>
+                <td>${item.daysLeft < 0 ? `Expired ${Math.abs(item.daysLeft)} days ago` : `${item.daysLeft} days`}</td>
+            </tr>
+        `;
+    });
+    
+    printContent += `
+                </tbody>
+            </table>
+            
+            <div style="margin-top: 30px; font-size: 12px; color: #666;">
+                <p><strong>Legend:</strong></p>
+                <p>Critical: Expired or expiring within 7 days</p>
+                <p>Warning: Expiring within 8-30 days</p>
+            </div>
+        </body>
+        </html>
+    `;
+    
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+    }, 500);
+}
+
 /* ================= AUTH & UI STATE ================= */
 onAuthStateChanged(auth, user => {
   const isAdmin = !!user;
   document.body.classList.toggle("is-admin", isAdmin);
   
-  // Show/hide logout button
   const logoutBtn = document.getElementById("logoutBtn");
   if (logoutBtn) logoutBtn.style.display = isAdmin ? "block" : "none";
   
-  // Show/hide login trigger
   const loginTrigger = document.getElementById("loginTrigger");
   if (loginTrigger) loginTrigger.style.display = isAdmin ? "none" : "flex";
   
-  // Show/hide employee trigger
   const empTrigger = document.getElementById("employeeTrigger");
   if (empTrigger) empTrigger.style.display = isAdmin ? "flex" : "none";
   
-  // Handle admin-only elements
   const adminElements = document.querySelectorAll('.admin-only');
   adminElements.forEach(el => {
     if (isAdmin) {
@@ -180,13 +450,11 @@ onAuthStateChanged(auth, user => {
     }
   });
   
-  // Handle public-only elements
   const publicElements = document.querySelectorAll('.public-only');
   publicElements.forEach(el => {
     el.style.display = isAdmin ? 'none' : '';
   });
   
-  // Show/hide admin filter buttons
   const filterButtons = document.querySelectorAll('.filter-buttons');
   filterButtons.forEach(btn => {
     if (btn) btn.style.display = isAdmin ? 'flex' : 'none';
@@ -221,11 +489,7 @@ const setupModal = (triggerId, modalId, closeId, onCloseCallback = null, clearFi
     trigger.onclick = () => {
       modal.style.display = "flex";
       document.body.classList.add("modal-open");
-      
-      // Force reflow for animation
       modal.offsetHeight;
-      
-      // Add animation class
       modal.classList.add("modal-visible");
     };
   }
@@ -236,7 +500,6 @@ const setupModal = (triggerId, modalId, closeId, onCloseCallback = null, clearFi
     };
   }
   
-  // Close modal when clicking outside
   if (modal) {
     modal.onclick = (e) => {
       if (e.target === modal) {
@@ -245,7 +508,6 @@ const setupModal = (triggerId, modalId, closeId, onCloseCallback = null, clearFi
     };
   }
   
-  // Escape key to close modal
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && modal.style.display === 'flex') {
       closeModal(modal, clearFieldsOnClose, onCloseCallback);
@@ -266,12 +528,12 @@ function closeModal(modal, clearFieldsOnClose, onCloseCallback) {
   if (onCloseCallback) onCloseCallback();
 }
 
-// Setup modals
 setupModal("loginTrigger", "loginModal", "closeModal", null, true);
 setupModal("employeeTrigger", "employeeModal", "closeEmployeeModal", () => {
   resetEmployeeForm();
 });
 setupModal("lowStockAlert", "lowStockModal", "closeLowStockModal");
+setupModal("expiryAlert", "expiryAlertModal", "closeExpiryAlertModal");
 
 /* ================= ENHANCED INVENTORY SYNC ================= */
 onValue(ref(db, "inventory"), snapshot => {
@@ -284,18 +546,16 @@ onValue(ref(db, "inventory"), snapshot => {
   lowStockList.innerHTML = "";
   select.innerHTML = '<option value="">Select Item...</option>';
   lowStockItems = [];
+  expiringItems = [];
   
- Object.keys(data).forEach(key => {
+  Object.keys(data).forEach(key => {
     const item = data[key];
     const qty = parseInt(item.quantity) || 0;
     const isLow = qty <= 5;
     const isCritical = qty <= 2;
     const rawItemName = item.name || "";
     
-    // Remove (PPE) extension from display name
     const displayName = rawItemName.replace(/\s*\(PPE\)\s*$/i, '').trim();
-    
-    // Determine category
     const lowerName = rawItemName.toLowerCase();
     const isPPE = lowerName.includes('(ppe)') || 
                   ['mask', 'gloves', 'gown', 'shield', 'ppe', 'face shield', 'apron', 'coverall', 'safety', 'protective', 'hard hat', 'helmet'].some(w => 
@@ -322,6 +582,23 @@ onValue(ref(db, "inventory"), snapshot => {
         lowStockList.appendChild(li);
     }
     
+    if (!isPPE && item.expiryDate) {
+        const expiryDate = new Date(item.expiryDate);
+        const today = new Date();
+        const diffDays = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+        
+        if (diffDays <= 60) {
+            expiringItems.push({
+                id: key,
+                name: rawItemName,
+                quantity: qty,
+                expiryDate: item.expiryDate,
+                daysLeft: diffDays,
+                isExpired: diffDays < 0
+            });
+        }
+    }
+    
     const categoryClass = isPPE ? 'ppe' : 'medkit';
     const categoryIcon = isPPE ? '🛡️' : '💊';
     
@@ -329,6 +606,9 @@ onValue(ref(db, "inventory"), snapshot => {
     tr.className = `cat-${categoryClass}`;
     tr.dataset.category = categoryClass;
     tr.dataset.quantity = qty;
+    if (!isPPE && item.expiryDate) {
+        tr.dataset.expiry = item.expiryDate;
+    }
     
     tr.innerHTML = `
         <td>
@@ -343,6 +623,7 @@ onValue(ref(db, "inventory"), snapshot => {
                     isLow ? '<span style="color:#f59e0b; font-size:0.8rem; margin-left:4px;">(Low)</span>' : ''}
             </div>
         </td>
+        <td class="expiry-cell"></td>
         <td class="admin-only" style="text-align:center">
             <div class="table-actions">
                 <button class="btn-table btn-edit-table btn-edit" data-id="${key}" title="Edit Item" aria-label="Edit ${displayName}">
@@ -360,10 +641,27 @@ onValue(ref(db, "inventory"), snapshot => {
     `;
     
     tbody.appendChild(tr);
-    select.innerHTML += `<option value="${key}" class="cat-${categoryClass}">${displayName} (${qty} available)</option>`;
-});
+    
+    let optionText = `${displayName} (${qty} available)`;
+    if (!isPPE && item.expiryDate) {
+        const expiryDate = new Date(item.expiryDate);
+        const status = getExpiryStatus(item.expiryDate);
+        optionText += ` - Exp: ${expiryDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+        
+        if (status.status === 'warning') {
+            optionText += ` ⚠️`;
+        } else if (status.status === 'expired') {
+            optionText += ` ❌`;
+        }
+    }
+    
+    select.innerHTML += `<option value="${key}" class="cat-${categoryClass}" data-expiry="${item.expiryDate || ''}">${optionText}</option>`;
+  });
   
   applyStockFilter();
+  updateInventoryExpiryDisplay();
+  checkExpiringItems(data);
+  updateExpiryAlertBadge();
   
   const bell = document.getElementById("lowStockAlert");
   if(bell) {
@@ -638,10 +936,10 @@ document.getElementById("saveEmpBtn").onclick = async () => {
 /* ================= ENHANCED REQUEST VALIDATION ================= */
 document.getElementById("reqBtn").onclick = async () => {
   const itemId = document.getElementById("reqItemSelect").value;
-const inputName = sanitizeInput(document.getElementById("reqName").value);
-const inputID = sanitizeInput(document.getElementById("reqID").value, 50);
-const qty = parseInt(document.getElementById("reqQty").value);
-const purpose = sanitizeInput(document.getElementById("reqPurpose").value);
+  const inputName = sanitizeInput(document.getElementById("reqName").value);
+  const inputID = sanitizeInput(document.getElementById("reqID").value, 50);
+  const qty = parseInt(document.getElementById("reqQty").value);
+  const purpose = sanitizeInput(document.getElementById("reqPurpose").value);
   
   if (!itemId) {
     showToast("Please select an item from the list", "error");
@@ -710,6 +1008,7 @@ const purpose = sanitizeInput(document.getElementById("reqPurpose").value);
       qty: qty,
       purpose: purpose,
       itemId: itemId,
+      expiryDate: itemData.expiryDate || null,
       timestamp: Date.now()
     });
     
@@ -722,6 +1021,7 @@ const purpose = sanitizeInput(document.getElementById("reqPurpose").value);
         document.getElementById(id).value = "";
       });
       document.getElementById("reqItemSelect").selectedIndex = 0;
+      document.getElementById("itemExpiryInfo").style.display = "none";
       form.style.opacity = "1";
     }, 300);
     
@@ -797,14 +1097,14 @@ function applyLogFilter() {
   let html = `<table class="logs-table"><thead><tr>
     <th style="width:15%">Date</th>
     <th style="width:15%">User</th>
+    <th style="width:10%">Expiry</th>
     <th style="width:25%">Action/Item</th>
-    <th style="width:45%">Detail</th>
+    <th style="width:35%">Detail</th>
   </tr></thead><tbody>`;
   
   filtered.slice(0, 100).forEach(log => {
     const itemName = log.itemName || '';
     const isPPE = itemName.toLowerCase().includes('(ppe)');
-    const categoryTag = isPPE ? ' 🛡️' : ' 💊';
     const date = new Date(log.date || log.timestamp);
     const formattedDate = isNaN(date.getTime()) ? 'Invalid Date' : date.toLocaleDateString();
     const formattedTime = isNaN(date.getTime()) ? '' : date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
@@ -813,6 +1113,15 @@ function applyLogFilter() {
     const actionClass = action === 'Add' ? 'add' : 
                        action === 'Edit' ? 'edit' : 
                        action === 'Delete' ? 'delete' : 'req';
+    
+    const expiryInfo = log.expiryDate ? `
+        <div class="log-expiry">
+            ${formatExpiryDate(log.expiryDate)}
+            ${log.expiryAction ? `<div class="expiry-log-badge ${log.expiryAction}">
+                ${log.expiryAction.toUpperCase()} EXPIRY
+            </div>` : ''}
+        </div>
+    ` : '<div class="log-expiry">-</div>';
     
     html += `
       <tr>
@@ -823,6 +1132,9 @@ function applyLogFilter() {
         <td>
           <div style="font-weight:600;">${log.admin || log.requester || 'Unknown'}</div>
           ${log.empID ? `<div style="font-size:12px; color:#64748b;">ID: ${log.empID}</div>` : ''}
+        </td>
+        <td class="log-expiry">
+          ${expiryInfo}
         </td>
         <td>
           <span class="action-badge ${actionClass}">${action}</span>
@@ -895,7 +1207,7 @@ document.getElementById("downloadCsvBtn").onclick = () => {
     return;
   }
   
-  let csv = "Date,Time,User,User ID,Action,Item,Quantity,Category,Purpose\n";
+  let csv = "Date,Time,User,User ID,Action,Item,Quantity,Expiry Date,Category,Purpose\n";
   
   filtered.forEach(log => {
     const itemName = log.itemName || '';
@@ -906,7 +1218,7 @@ document.getElementById("downloadCsvBtn").onclick = () => {
     const formattedTime = isNaN(date.getTime()) ? '' : date.toLocaleTimeString();
     
     csv += `"${formattedDate}","${formattedTime}","${log.admin || log.requester || ''}","${log.empID || ''}",`;
-    csv += `"${log.action || 'Request'}","${itemName}",${log.qty || 0},${category},"${(log.purpose || "").replace(/"/g, '""')}"\n`;
+    csv += `"${log.action || 'Request'}","${itemName}",${log.qty || 0},"${log.expiryDate || ''}",${category},"${(log.purpose || "").replace(/"/g, '""')}"\n`;
   });
   
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -945,6 +1257,7 @@ document.getElementById("inventoryBody").addEventListener("click", async e => {
         
         document.getElementById("itemName").value = displayName;
         document.getElementById("itemQty").value = parseInt(itemData.quantity) || 0;
+        document.getElementById("itemExpiry").value = itemData.expiryDate || '';
         document.getElementById("saveBtn").innerText = "Update Item";
       }
     } catch (error) {
@@ -980,6 +1293,7 @@ document.getElementById("inventoryBody").addEventListener("click", async e => {
           action: "Delete",
           itemName: rawName,
           qty: 0,
+          expiryDate: itemData.expiryDate || null,
           timestamp: Date.now()
         });
         
@@ -1000,6 +1314,7 @@ document.getElementById("saveBtn").onclick = async () => {
   const id = document.getElementById("editItemId").value;
   const name = document.getElementById("itemName").value.trim();
   const qty = parseInt(document.getElementById("itemQty").value);
+  const expiryDate = document.getElementById("itemExpiry").value;
   
   if (!name) {
     showToast("Item name is required", "error");
@@ -1013,14 +1328,32 @@ document.getElementById("saveBtn").onclick = async () => {
     return;
   }
   
+  if (expiryDate) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selectedDate = new Date(expiryDate);
+    
+    if (selectedDate < today) {
+      showToast("Expiry date cannot be in the past", "error");
+      document.getElementById("itemExpiry").focus();
+      return;
+    }
+  }
+  
   try {
     showLoading(true);
     
     if (id) {
-      await update(ref(db, `inventory/${id}`), { 
-        name, 
-        quantity: qty 
-      });
+      const itemData = {
+        name,
+        quantity: qty
+      };
+      
+      if (expiryDate) {
+        itemData.expiryDate = expiryDate;
+      }
+      
+      await update(ref(db, `inventory/${id}`), itemData);
       
       await push(ref(db, "admin_logs"), {
         date: new Date().toISOString(),
@@ -1028,10 +1361,11 @@ document.getElementById("saveBtn").onclick = async () => {
         action: "Edit",
         itemName: name,
         qty: qty,
+        expiryDate: expiryDate || null,
         timestamp: Date.now()
       });
       
-      ["editItemId", "itemName", "itemQty"].forEach(i => {
+      ["editItemId", "itemName", "itemQty", "itemExpiry"].forEach(i => {
         document.getElementById(i).value = "";
       });
       document.getElementById("saveBtn").innerText = "Add / Update";
@@ -1039,7 +1373,7 @@ document.getElementById("saveBtn").onclick = async () => {
       showToast("Inventory Updated Successfully!", "success");
       
     } else {
-      pendingItemData = { name, qty };
+      pendingItemData = { name, qty, expiryDate };
       document.getElementById("categoryModal").style.display = "flex";
     }
     
@@ -1069,12 +1403,18 @@ async function finalizeAddition(category) {
     
     const newKey = push(ref(db, "inventory")).key;
     
-    await update(ref(db, `inventory/${newKey}`), {
+    const itemData = {
       name: finalName,
       quantity: pendingItemData.qty,
       category: category.toLowerCase(),
       addedDate: new Date().toISOString()
-    });
+    };
+    
+    if (category === "Medkit" && pendingItemData.expiryDate) {
+      itemData.expiryDate = pendingItemData.expiryDate;
+    }
+    
+    await update(ref(db, `inventory/${newKey}`), itemData);
     
     await push(ref(db, "admin_logs"), {
       date: new Date().toISOString(),
@@ -1082,12 +1422,13 @@ async function finalizeAddition(category) {
       action: "Add",
       itemName: finalName,
       qty: pendingItemData.qty,
+      expiryDate: pendingItemData.expiryDate || null,
       timestamp: Date.now()
     });
     
     document.getElementById("categoryModal").style.display = "none";
     
-    ["itemName", "itemQty"].forEach(i => {
+    ["itemName", "itemQty", "itemExpiry"].forEach(i => {
       document.getElementById(i).value = "";
     });
     
@@ -1100,6 +1441,36 @@ async function finalizeAddition(category) {
     showLoading(false);
   }
 }
+
+/* ================= REQUEST FORM EXPIRY INFO ================= */
+document.getElementById("reqItemSelect").addEventListener("change", function() {
+    const selectedOption = this.options[this.selectedIndex];
+    const expiryDate = selectedOption.dataset.expiry;
+    const expiryInfo = document.getElementById("itemExpiryInfo");
+    const expiryDisplay = document.getElementById("expiryDateDisplay");
+    
+    if (expiryDate) {
+        const status = getExpiryStatus(expiryDate);
+        expiryDisplay.textContent = `${formatExpiryDate(expiryDate)} `;
+        
+        if (status.status === 'expired') {
+            expiryDisplay.innerHTML += `<span style="color:#ef4444; font-weight:bold;">(EXPIRED)</span>`;
+            expiryInfo.style.background = "rgba(239, 68, 68, 0.1)";
+            expiryInfo.style.borderLeft = "3px solid #ef4444";
+        } else if (status.status === 'warning') {
+            expiryDisplay.innerHTML += `<span style="color:#f59e0b; font-weight:bold;">(${status.days} days left)</span>`;
+            expiryInfo.style.background = "rgba(245, 158, 11, 0.1)";
+            expiryInfo.style.borderLeft = "3px solid #f59e0b";
+        } else {
+            expiryInfo.style.background = "rgba(59, 130, 246, 0.1)";
+            expiryInfo.style.borderLeft = "3px solid #3b82f6";
+        }
+        
+        expiryInfo.style.display = 'block';
+    } else {
+        expiryInfo.style.display = 'none';
+    }
+});
 
 /* ================= ENHANCED AUTH ACTIONS ================= */
 document.getElementById("loginBtn").onclick = async () => {
@@ -1204,12 +1575,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   
-  document.querySelectorAll('.modal').forEach(modal => {
-    modal.addEventListener('shown', () => {
-      const input = modal.querySelector('input:not([type="hidden"])');
-      if (input) input.focus();
-    });
+  // Expiry alert modal setup
+  document.querySelectorAll('#expiryFilterTabs .filter-btn').forEach(btn => {
+    btn.onclick = function() {
+      document.querySelectorAll('#expiryFilterTabs .filter-btn').forEach(b => {
+        b.classList.remove('active');
+      });
+      this.classList.add('active');
+      showExpiryAlert(this.dataset.filter);
+    };
   });
+  
+  document.getElementById('closeExpiryAlertModal').onclick = () => {
+    document.getElementById('expiryAlertModal').style.display = 'none';
+    document.body.classList.remove('modal-open');
+  };
+  
+  document.getElementById('printExpiryReport').onclick = () => {
+    printExpiryReport();
+  };
+  
+  // Set minimum date for expiry input
+  const today = new Date().toISOString().split('T')[0];
+  const expiryInput = document.getElementById('itemExpiry');
+  if (expiryInput) {
+    expiryInput.min = today;
+  }
   
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
@@ -1233,5 +1624,5 @@ document.addEventListener('DOMContentLoaded', () => {
     showToast("You are offline. Some features may be limited.", "warning");
   });
   
-  console.log("Medical Inventory System initialized successfully");
+  console.log("Medical Inventory System with Expiry Tracking initialized successfully");
 });
