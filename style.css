@@ -383,6 +383,7 @@ textarea {
     align-items: center;
     justify-content: center;
     gap: 8px;
+flex-direction: column;
 }
 
 .stock-indicator {
@@ -428,6 +429,8 @@ textarea {
     background: rgba(139, 92, 246, 0.1);
     color: #8b5cf6;
 }
+
+
 
 /* ================= ACTIONS BUTTONS ================= */
 .table-actions {
@@ -722,6 +725,27 @@ button:active {
     border-radius: 10px;
 }
 
+/* Fix for employee modal buttons */
+#employeeModal .table-actions {
+  display: flex !important;
+  gap: 8px;
+  justify-content: center;
+}
+
+body.is-admin #employeeModal .table-actions {
+  display: flex !important;
+}
+
+/* Ensure buttons are visible in admin mode */
+body.is-admin .btn-edit-emp,
+body.is-admin .btn-delete-emp {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+
+
 /* ================= FORM GRIDS ================= */
 .request-grid, .admin-form-grid {
     display: grid;
@@ -830,14 +854,27 @@ button:active {
     
     .table-actions {
         flex-direction: column;
-        gap: 5px;
+        gap: 6px;
     }
     
     .btn-table {
         padding: 8px 12px;
         font-size: 0.8rem;
-    }
+        min-width: 44px;
+        min-height: 44px;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+    } 
+  
+  /* Ensure admin-only elements show properly */
+        body.is-admin td.admin-only {
+        display: table-cell !important;
+  }
+
 }
+
+
 
 @media (max-width: 600px) {
     #employeeModal .modal-content {
@@ -900,10 +937,39 @@ button:active {
 }
 
 /* ================= VISIBILITY CLASSES ================= */
-.admin-only { display: none !important; }
-body.is-admin .admin-only { display: block !important; }
-body.is-admin td.admin-only, body.is-admin th.admin-only { display: table-cell !important; }
-body.is-admin .public-only { display: none !important; }
+.admin-only { 
+  display: none !important; 
+}
+
+body.is-admin .admin-only { 
+  display: block !important; 
+}
+
+/* Specific table cell/row handling */
+body.is-admin td.admin-only, 
+body.is-admin th.admin-only { 
+  display: table-cell !important; 
+}
+
+/* For flex containers */
+body.is-admin .admin-only[style*="display: flex"],
+body.is-admin .admin-only.flex {
+  display: flex !important;
+}
+
+/* For inline elements */
+body.is-admin .admin-only.inline {
+  display: inline !important;
+}
+
+body.is-admin .admin-only.inline-block {
+  display: inline-block !important;
+}
+
+/* Hide public elements when admin is logged in */
+body.is-admin .public-only { 
+  display: none !important; 
+}
 
 /* ================= CATEGORY FILTERING ================= */
 .cat-medkit, .cat-ppe { display: table-row; }
