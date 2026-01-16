@@ -201,6 +201,7 @@ function checkExpiringItems(inventoryData) {
                     id: key,
                     name: item.name,
                     quantity: item.quantity,
+                    unit: item.unit || 'Pc',
                     expiryDate: item.expiryDate,
                     daysLeft: diffDays,
                     isExpired: diffDays < 0
@@ -285,7 +286,7 @@ function showExpiryAlert(filterType = 'expired') {
             const li = document.createElement('li');
             li.innerHTML = `
                 <div class="expiry-item-info">
-                    <span class="expiry-item-name">${item.name.replace(/\s*\(PPE\)\s*$/i, '')}</span>
+                    <span class="expiry-item-name">${item.name.replace(/\s*\(PPE\)\s*$/i, '')} <span class="unit-badge">${item.unit}</span></span>
                     <span class="expiry-item-date">
                         📅 ${formatExpiryDate(item.expiryDate)}
                         <span class="expiry-status ${item.daysLeft < 0 ? 'expiry-expired' : 'expiry-warning'}">
@@ -294,7 +295,7 @@ function showExpiryAlert(filterType = 'expired') {
                         </span>
                     </span>
                 </div>
-                <span class="expiry-item-qty">${item.quantity} units</span>
+                <span class="expiry-item-qty">${item.quantity} ${item.unit}</span>
             `;
             list.appendChild(li);
         });
@@ -380,6 +381,7 @@ function printExpiryReport() {
                     <tr>
                         <th>Item Name</th>
                         <th>Quantity</th>
+                        <th>Unit</th>
                         <th>Expiry Date</th>
                         <th>Status</th>
                         <th>Days Remaining</th>
@@ -398,6 +400,7 @@ function printExpiryReport() {
             <tr class="${rowClass}">
                 <td>${item.name.replace(/\s*\(PPE\)\s*$/i, '')}</td>
                 <td>${item.quantity}</td>
+                <td>${item.unit}</td>
                 <td>${formatExpiryDate(item.expiryDate)}</td>
                 <td>${status}</td>
                 <td>${item.daysLeft < 0 ? `Expired ${Math.abs(item.daysLeft)} days ago` : `${item.daysLeft} days`}</td>
@@ -536,168 +539,196 @@ setupModal("employeeTrigger", "employeeModal", "closeEmployeeModal", () => {
 setupModal("lowStockAlert", "lowStockModal", "closeLowStockModal");
 setupModal("expiryAlert", "expiryAlertModal", "closeExpiryAlertModal");
 
-/* ================= ENHANCED INVENTORY SYNC ================= */
+/* ================= ENHANCED INVENTORY SYNC WITH UNIT SUPPORT ================= */
 onValue(ref(db, "inventory"), snapshot => {
-  const data = snapshot.val() || {};
-  const tbody = document.getElementById("inventoryBody");
-  const select = document.getElementById("reqItemSelect");
-  const lowStockList = document.getElementById("lowStockList");
-  
-  tbody.innerHTML = "";
-  lowStockList.innerHTML = "";
-  select.innerHTML = '<option value="">Select Item...</option>';
-  lowStockItems = [];
-  expiringItems = [];
-  
-  Object.keys(data).forEach(key => {
-    const item = data[key];
-    const qty = parseInt(item.quantity) || 0;
-    const isLow = qty <= 5;
-    const isCritical = qty <= 2;
-    const rawItemName = item.name || "";
+    const data = snapshot.val() || {};
+    const tbody = document.getElementById("inventoryBody");
+    const select = document.getElementById("reqItemSelect");
+    const manualItemSelect = document.getElementById("manualReqItem");
+    const lowStockList = document.getElementById("lowStockList");
     
-    const displayName = rawItemName.replace(/\s*\(PPE\)\s*$/i, '').trim();
-    const lowerName = rawItemName.toLowerCase();
-    const isPPE = lowerName.includes('(ppe)') || 
-                  ['mask', 'gloves', 'gown', 'shield', 'ppe', 'face shield', 'apron', 'coverall', 'safety', 'protective', 'hard hat', 'helmet'].some(w => 
-                      lowerName.includes(w)
-                  ) ||
-                  (item.category && item.category === 'ppe');
+    tbody.innerHTML = "";
+    lowStockList.innerHTML = "";
+    select.innerHTML = '<option value="">Select Item...</option>';
+    if (manualItemSelect) manualItemSelect.innerHTML = '<option value="">Select Item...</option>';
+    lowStockItems = [];
+    expiringItems = [];
     
-    if (isLow) {
-        lowStockItems.push({ name: rawItemName, quantity: qty, critical: isCritical });
-        const li = document.createElement("li");
-        li.style.cssText = `
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(0,0,0,0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        `;
-        li.innerHTML = `
-            <span><strong>${displayName}</strong></span>
-            <span style="color: ${isCritical ? '#ef4444' : '#f59e0b'}; font-weight: bold;">
-                ${qty} left${isCritical ? ' ⚠️' : ''}
-            </span>
-        `;
-        lowStockList.appendChild(li);
-    }
-    
-    if (!isPPE && item.expiryDate) {
-        const expiryDate = new Date(item.expiryDate);
-        const today = new Date();
-        const diffDays = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+    Object.keys(data).forEach(key => {
+        const item = data[key];
+        const qty = parseFloat(item.quantity) || 0;
+        const unit = item.unit || 'Pc';
+        const isLow = qty <= 5;
+        const isCritical = qty <= 2;
+        const rawItemName = item.name || "";
         
-        if (diffDays <= 60) {
-            expiringItems.push({
-                id: key,
-                name: rawItemName,
-                quantity: qty,
-                expiryDate: item.expiryDate,
-                daysLeft: diffDays,
-                isExpired: diffDays < 0
+        const displayName = rawItemName.replace(/\s*\(PPE\)\s*$/i, '').trim();
+        const lowerName = rawItemName.toLowerCase();
+        const isPPE = lowerName.includes('(ppe)') || 
+                      ['mask', 'gloves', 'gown', 'shield', 'ppe', 'face shield', 'apron', 'coverall', 'safety', 'protective', 'hard hat', 'helmet'].some(w => 
+                          lowerName.includes(w)
+                      ) ||
+                      (item.category && item.category === 'ppe');
+        
+        if (isLow) {
+            lowStockItems.push({ 
+                name: rawItemName, 
+                quantity: qty, 
+                unit: unit,
+                critical: isCritical 
             });
+            const li = document.createElement("li");
+            li.style.cssText = `
+                padding: 8px 0;
+                border-bottom: 1px solid rgba(0,0,0,0.1);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            `;
+            li.innerHTML = `
+                <span><strong>${displayName}</strong> <span class="unit-badge">${unit}</span></span>
+                <span style="color: ${isCritical ? '#ef4444' : '#f59e0b'}; font-weight: bold;">
+                    ${qty} ${unit}${isCritical ? ' ⚠️' : ''}
+                </span>
+            `;
+            lowStockList.appendChild(li);
         }
-    }
-    
-    const categoryClass = isPPE ? 'ppe' : 'medkit';
-    const categoryIcon = isPPE ? '🛡️' : '💊';
-    
-    const tr = document.createElement("tr");
-    tr.className = `cat-${categoryClass}`;
-    tr.dataset.category = categoryClass;
-    tr.dataset.quantity = qty;
-    if (!isPPE && item.expiryDate) {
-        tr.dataset.expiry = item.expiryDate;
-    }
-    
-    tr.innerHTML = `
-        <td>
-            <span class="category-badge ${categoryClass}">${categoryIcon} ${isPPE ? 'PPE' : 'Medkit'}</span>
-            ${displayName}
-        </td>
-        <td style="text-align:center">
-            <div class="stock-level">
-                <span class="stock-indicator ${isCritical ? 'low' : isLow ? 'low' : 'ok'}"></span>
-                <span class="stock-qty">${qty}</span>
-                ${isCritical ? '<span style="color:#ef4444; font-size:0.8rem; margin-left:4px;">(Critical)</span>' : 
-                    isLow ? '<span style="color:#f59e0b; font-size:0.8rem; margin-left:4px;">(Low)</span>' : ''}
-            </div>
-        </td>
-        <td class="expiry-cell"></td>
-        <td class="admin-only" style="text-align:center">
-            <div class="table-actions">
-                <button class="btn-table btn-edit-table btn-edit" data-id="${key}" title="Edit Item" aria-label="Edit ${displayName}">
-                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                    </svg>
-                </button>
-                <button class="btn-table btn-delete-table btn-delete" data-id="${key}" title="Delete Item" aria-label="Delete ${displayName}">
-                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                    </svg>
-                </button>
-            </div>
-        </td>
-    `;
-    
-    tbody.appendChild(tr);
-    
-    let optionText = `${displayName} (${qty} available)`;
-    if (!isPPE && item.expiryDate) {
-        const expiryDate = new Date(item.expiryDate);
-        const status = getExpiryStatus(item.expiryDate);
-        optionText += ` - Exp: ${expiryDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
         
-        if (status.status === 'warning') {
-            optionText += ` ⚠️`;
-        } else if (status.status === 'expired') {
-            optionText += ` ❌`;
+        if (!isPPE && item.expiryDate) {
+            const expiryDate = new Date(item.expiryDate);
+            const today = new Date();
+            const diffDays = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+            
+            if (diffDays <= 60) {
+                expiringItems.push({
+                    id: key,
+                    name: rawItemName,
+                    quantity: qty,
+                    unit: unit,
+                    expiryDate: item.expiryDate,
+                    daysLeft: diffDays,
+                    isExpired: diffDays < 0
+                });
+            }
+        }
+        
+        const categoryClass = isPPE ? 'ppe' : 'medkit';
+        const categoryIcon = isPPE ? '🛡️' : '💊';
+        
+        const tr = document.createElement("tr");
+        tr.className = `cat-${categoryClass}`;
+        tr.dataset.category = categoryClass;
+        tr.dataset.quantity = qty;
+        if (!isPPE && item.expiryDate) {
+            tr.dataset.expiry = item.expiryDate;
+        }
+        
+        tr.innerHTML = `
+            <td>
+                <div class="item-with-unit">
+                    <span class="category-badge ${categoryClass}">${categoryIcon} ${isPPE ? 'PPE' : 'Medkit'}</span>
+                    ${displayName}
+                    <span class="unit-badge">${unit}</span>
+                </div>
+            </td>
+            <td style="text-align:center">
+                <div class="stock-level">
+                    <span class="stock-indicator ${isCritical ? 'low' : isLow ? 'low' : 'ok'}"></span>
+                    <span class="stock-qty">${qty}</span>
+                    <span class="unit-display">${unit}</span>
+                    ${isCritical ? '<span style="color:#ef4444; font-size:0.8rem; margin-left:4px;">(Critical)</span>' : 
+                        isLow ? '<span style="color:#f59e0b; font-size:0.8rem; margin-left:4px;">(Low)</span>' : ''}
+                </div>
+            </td>
+            <td class="expiry-cell"></td>
+            <td class="admin-only" style="text-align:center">
+                <div class="table-actions">
+                    <button class="btn-table btn-edit-table btn-edit" data-id="${key}" title="Edit Item" aria-label="Edit ${displayName}">
+                        <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                        </svg>
+                    </button>
+                    <button class="btn-table btn-delete-table btn-delete" data-id="${key}" title="Delete Item" aria-label="Delete ${displayName}">
+                        <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                        </svg>
+                    </button>
+                </div>
+            </td>
+        `;
+        
+        tbody.appendChild(tr);
+        
+        let optionText = `${displayName} (${qty} ${unit} available)`;
+        if (!isPPE && item.expiryDate) {
+            const expiryDate = new Date(item.expiryDate);
+            const status = getExpiryStatus(item.expiryDate);
+            optionText += ` - Exp: ${expiryDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+            
+            if (status.status === 'warning') {
+                optionText += ` ⚠️`;
+            } else if (status.status === 'expired') {
+                optionText += ` ❌`;
+            }
+        }
+        
+        const option = document.createElement("option");
+        option.value = key;
+        option.textContent = optionText;
+        option.className = `cat-${categoryClass}`;
+        option.dataset.expiry = item.expiryDate || '';
+        option.dataset.unit = unit;
+        select.appendChild(option);
+        
+        if (manualItemSelect) {
+            const manualOption = document.createElement("option");
+            manualOption.value = key;
+            manualOption.textContent = `${displayName} (${qty} ${unit} available)`;
+            manualOption.dataset.name = rawItemName;
+            manualOption.dataset.unit = unit;
+            manualItemSelect.appendChild(manualOption);
+        }
+    });
+    
+    applyStockFilter();
+    updateInventoryExpiryDisplay();
+    checkExpiringItems(data);
+    updateExpiryAlertBadge();
+    
+    const bell = document.getElementById("lowStockAlert");
+    if(bell) {
+        bell.style.display = (auth.currentUser && lowStockItems.length > 0) ? "flex" : "none";
+        
+        const criticalCount = lowStockItems.filter(item => item.critical).length;
+        if (criticalCount > 0) {
+            let badge = bell.querySelector('.notification-badge');
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'notification-badge';
+                badge.style.cssText = `
+                position: absolute;
+                top: -5px;
+                right: -5px;
+                background: #ef4444;
+                color: white;
+                border-radius: 50%;
+                width: 18px;
+                height: 18px;
+                font-size: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: bold;
+                `;
+                bell.style.position = 'relative';
+                bell.appendChild(badge);
+            }
+            badge.textContent = criticalCount;
+        } else {
+            const badge = bell.querySelector('.notification-badge');
+            if (badge) badge.remove();
         }
     }
-    
-    select.innerHTML += `<option value="${key}" class="cat-${categoryClass}" data-expiry="${item.expiryDate || ''}">${optionText}</option>`;
-  });
-  
-  applyStockFilter();
-  updateInventoryExpiryDisplay();
-  checkExpiringItems(data);
-  updateExpiryAlertBadge();
-  
-  const bell = document.getElementById("lowStockAlert");
-  if(bell) {
-    bell.style.display = (auth.currentUser && lowStockItems.length > 0) ? "flex" : "none";
-    
-    const criticalCount = lowStockItems.filter(item => item.critical).length;
-    if (criticalCount > 0) {
-      let badge = bell.querySelector('.notification-badge');
-      if (!badge) {
-        badge = document.createElement('span');
-        badge.className = 'notification-badge';
-        badge.style.cssText = `
-          position: absolute;
-          top: -5px;
-          right: -5px;
-          background: #ef4444;
-          color: white;
-          border-radius: 50%;
-          width: 18px;
-          height: 18px;
-          font-size: 10px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: bold;
-        `;
-        bell.style.position = 'relative';
-        bell.appendChild(badge);
-      }
-      badge.textContent = criticalCount;
-    } else {
-      const badge = bell.querySelector('.notification-badge');
-      if (badge) badge.remove();
-    }
-  }
 });
 
 /* ================= ADMIN STOCK FILTER ================= */
@@ -934,104 +965,127 @@ document.getElementById("saveEmpBtn").onclick = async () => {
   }
 };
 
-/* ================= ENHANCED REQUEST VALIDATION ================= */
+/* ================= UPDATED REQUEST VALIDATION WITH UNIT ================= */
 document.getElementById("reqBtn").onclick = async () => {
-  const itemId = document.getElementById("reqItemSelect").value;
-  const inputName = sanitizeInput(document.getElementById("reqName").value);
-  const inputID = sanitizeInput(document.getElementById("reqID").value, 50);
-  const qty = parseInt(document.getElementById("reqQty").value);
-  const purpose = sanitizeInput(document.getElementById("reqPurpose").value);
-  
-  if (!itemId) {
-    showToast("Please select an item from the list", "error");
-    return;
-  }
-  
-  if (!inputName || inputName.length < 2) {
-    showToast("Please enter a valid name (at least 2 characters)", "error");
-    return;
-  }
-  
-  if (!inputID || inputID.length < 3) {
-    showToast("Please enter a valid employee ID", "error");
-    return;
-  }
-  
-  if (isNaN(qty) || qty <= 0) {
-    showToast("Please enter a valid quantity (greater than 0)", "error");
-    return;
-  }
-  
-  if (!purpose) {
-    showToast("Please provide a purpose for the request", "error");
-    return;
-  }
-  
-  try {
-    showLoading(true);
+    const itemId = document.getElementById("reqItemSelect").value;
+    const inputName = sanitizeInput(document.getElementById("reqName").value);
+    const inputID = sanitizeInput(document.getElementById("reqID").value, 50);
+    const qty = parseFloat(document.getElementById("reqQty").value);
+    const purpose = sanitizeInput(document.getElementById("reqPurpose").value);
     
-    const empSnap = await get(ref(db, "employees"));
-    const employees = empSnap.val() || {};
-    const employeeMatch = Object.values(employees).find(e => 
-      e.name && e.id && 
-      e.name.toLowerCase() === inputName.toLowerCase() && 
-      e.id === inputID
-    );
-    
-    if (!employeeMatch) {
-      showToast("❌ Name and ID do not match any registered employee.", "error");
-      return;
+    if (!itemId) {
+        showToast("Please select an item from the list", "error");
+        return;
     }
     
-    const itemRef = ref(db, `inventory/${itemId}`);
-    const itemSnap = await get(itemRef);
-    const itemData = itemSnap.val();
-    
-    if (!itemData) {
-      showToast("Selected item not found in inventory", "error");
-      return;
+    if (!inputName || inputName.length < 2) {
+        showToast("Please enter a valid name (at least 2 characters)", "error");
+        return;
     }
     
-    if (itemData.quantity < qty) {
-      showToast(`Insufficient stock! Only ${itemData.quantity} available.`, "error");
-      return;
+    if (!inputID || inputID.length < 3) {
+        showToast("Please enter a valid employee ID", "error");
+        return;
     }
     
-    await update(itemRef, { 
-      quantity: itemData.quantity - qty 
-    });
+    if (isNaN(qty) || qty <= 0) {
+        showToast("Please enter a valid quantity (greater than 0)", "error");
+        return;
+    }
     
-    await push(ref(db, "transactions"), {
-      date: new Date().toISOString(),
-      requester: inputName,
-      empID: inputID,
-      itemName: itemData.name,
-      qty: qty,
-      purpose: purpose,
-      itemId: itemId,
-      expiryDate: itemData.expiryDate || null,
-      timestamp: Date.now()
-    });
+    if (!purpose) {
+        showToast("Please provide a purpose for the request", "error");
+        return;
+    }
     
-    showToast("✅ Request Granted! Item issued successfully.", "success");
-    
-    const form = document.getElementById("requestFields");
-    form.style.opacity = "0.5";
-    setTimeout(() => {
-      ["reqName", "reqID", "reqQty", "reqPurpose"].forEach(id => {
-        document.getElementById(id).value = "";
-      });
-      document.getElementById("reqItemSelect").selectedIndex = 0;
-      document.getElementById("itemExpiryInfo").style.display = "none";
-      form.style.opacity = "1";
-    }, 300);
-    
-  } catch (error) {
-    showToast("Error processing request: " + error.message, "error");
-    console.error(error);
-  } finally {
-    showLoading(false);
-  }
+    try {
+        showLoading(true);
+        
+        const empSnap = await get(ref(db, "employees"));
+        const employees = empSnap.val() || {};
+        const employeeMatch = Object.values(employees).find(e => 
+            e.name && e.id && 
+            e.name.toLowerCase() === inputName.toLowerCase() && 
+            e.id === inputID
+        );
+        
+        if (!employeeMatch) {
+            showToast("❌ Name and ID do not match any registered employee.", "error");
+            return;
+        }
+        
+        const itemRef = ref(db, `inventory/${itemId}`);
+        const itemSnap = await get(itemRef);
+        const itemData = itemSnap.val();
+        
+        if (!itemData) {
+            showToast("Selected item not found in inventory", "error");
+            return;
+        }
+        
+        const selectedOption = document.getElementById("reqItemSelect").options[document.getElementById("reqItemSelect").selectedIndex];
+        const unit = selectedOption?.dataset.unit || itemData.unit || 'Pc';
+        
+        // Unit-specific validation
+        if (unit === 'ml') {
+            // Allow decimal for ml
+            if (qty % 1 !== 0 && !Number.isFinite(qty)) {
+                showToast("Please enter a valid decimal quantity for ml", "error");
+                return;
+            }
+        } else {
+            // Whole numbers for other units
+            if (!Number.isInteger(qty)) {
+                showToast(`Quantity must be a whole number for ${unit}`, "error");
+                return;
+            }
+        }
+        
+        if (itemData.quantity < qty) {
+            showToast(`Insufficient stock! Only ${itemData.quantity} ${unit} available.`, "error");
+            return;
+        }
+        
+        await update(itemRef, { 
+            quantity: itemData.quantity - qty 
+        });
+        
+        const newTransactionRef = push(ref(db, "transactions"));
+        const transactionKey = newTransactionRef.key;
+        
+        await set(newTransactionRef, {
+            date: new Date().toISOString(),
+            requester: inputName,
+            empID: inputID,
+            itemName: itemData.name,
+            qty: qty,
+            unit: unit,
+            purpose: purpose,
+            itemId: itemId,
+            expiryDate: itemData.expiryDate || null,
+            timestamp: Date.now(),
+            transactionId: transactionKey
+        });
+        
+        showToast(`✅ Request Granted! ${qty} ${unit} of ${itemData.name.replace(/\s*\(PPE\)\s*$/i, '')} issued successfully.`, "success");
+        
+        const form = document.getElementById("requestFields");
+        form.style.opacity = "0.5";
+        setTimeout(() => {
+            ["reqName", "reqID", "reqQty", "reqPurpose"].forEach(id => {
+                document.getElementById(id).value = "";
+            });
+            document.getElementById("reqItemSelect").selectedIndex = 0;
+            document.getElementById("itemExpiryInfo").style.display = "none";
+            form.style.opacity = "1";
+        }, 300);
+        
+    } catch (error) {
+        showToast("Error processing request: " + error.message, "error");
+        console.error(error);
+    } finally {
+        showLoading(false);
+    }
 };
 
 /* ================= ENHANCED REPORTS & FILTERING ================= */
@@ -1039,13 +1093,22 @@ function loadReports() {
   const path = currentLogView === "requests" ? "transactions" : "admin_logs";
   onValue(ref(db, path), snapshot => {
     const data = snapshot.val();
+    allLogs = [];
+    
     if (data) {
-      allLogs = Object.values(data).sort((a, b) => 
+      // Store both the data and the Firebase key
+      Object.keys(data).forEach(key => {
+        allLogs.push({
+          ...data[key],
+          _key: key  // Store the Firebase key
+        });
+      });
+      
+      allLogs.sort((a, b) => 
         new Date(b.date || b.timestamp || 0) - new Date(a.date || a.timestamp || 0)
       );
-    } else {
-      allLogs = [];
     }
+    
     applyLogFilter();
   });
 }
@@ -1126,7 +1189,7 @@ function applyLogFilter() {
     ` : '<div class="log-expiry">-</div>';
     
     html += `
-      <tr data-log-id="${log.id || ''}">
+      <tr data-log-key="${log._key || ''}">
         <td>
           <div style="font-weight:500;">${formattedDate}</div>
           <div style="font-size:12px; color:#64748b;">${formattedTime}</div>
@@ -1147,19 +1210,23 @@ function applyLogFilter() {
         </td>
         <td>
           <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-            <span class="quantity-badge">Qty: ${log.qty || 0}</span>
+            <span class="quantity-badge">${log.qty || 0} ${log.unit || 'Pc'}</span>
           </div>
           ${log.purpose ? `<div class="purpose-text">${log.purpose}</div>` : ''}
         </td>
         <td class="admin-only">
           ${currentLogView === "requests" && !log.action ? `
             <div class="table-actions" style="justify-content:center; gap:4px;">
-              <button class="btn-table btn-edit-table btn-edit-log" data-id="${log.id || ''}" title="Edit Request">
+              <button class="btn-table btn-edit-table btn-edit-log" 
+                      data-key="${log._key || ''}" 
+                      title="Edit Request">
                 <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                 </svg>
               </button>
-              <button class="btn-table btn-delete-table btn-delete-log" data-id="${log.id || ''}" title="Delete Request">
+              <button class="btn-table btn-delete-table btn-delete-log" 
+                      data-key="${log._key || ''}"
+                      title="Delete Request">
                 <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                 </svg>
@@ -1186,21 +1253,27 @@ function applyLogFilter() {
 }
 
 function attachLogActionButtons() {
-  // Edit log buttons
   document.querySelectorAll('.btn-edit-log').forEach(btn => {
     btn.onclick = (e) => {
       e.stopPropagation();
-      const logId = btn.dataset.id;
-      editRequestFromLog(logId);
+      const key = btn.dataset.key;
+      if (key) {
+        editRequestFromLog(key);
+      } else {
+        showToast("Cannot edit: Request key not found", "error");
+      }
     };
   });
   
-  // Delete log buttons
   document.querySelectorAll('.btn-delete-log').forEach(btn => {
     btn.onclick = (e) => {
       e.stopPropagation();
-      const logId = btn.dataset.id;
-      deleteRequestFromLog(logId);
+      const key = btn.dataset.key;
+      if (key) {
+        deleteRequestFromLog(key);
+      } else {
+        showToast("Cannot delete: Request key not found", "error");
+      }
     };
   });
 }
@@ -1248,7 +1321,7 @@ document.getElementById("downloadCsvBtn").onclick = () => {
     return;
   }
   
-  let csv = "Date,Time,User,User ID,Action,Item,Quantity,Expiry Date,Category,Purpose\n";
+  let csv = "Date,Time,User,User ID,Action,Item,Quantity,Unit,Expiry Date,Category,Purpose\n";
   
   filtered.forEach(log => {
     const itemName = log.itemName || '';
@@ -1259,7 +1332,7 @@ document.getElementById("downloadCsvBtn").onclick = () => {
     const formattedTime = isNaN(date.getTime()) ? '' : date.toLocaleTimeString();
     
     csv += `"${formattedDate}","${formattedTime}","${log.admin || log.requester || ''}","${log.empID || ''}",`;
-    csv += `"${log.action || 'Request'}","${itemName}",${log.qty || 0},"${log.expiryDate || ''}",${category},"${(log.purpose || "").replace(/"/g, '""')}"\n`;
+    csv += `"${log.action || 'Request'}","${itemName}",${log.qty || 0},"${log.unit || 'Pc'}","${log.expiryDate || ''}",${category},"${(log.purpose || "").replace(/"/g, '""')}"\n`;
   });
   
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -1275,154 +1348,182 @@ document.getElementById("downloadCsvBtn").onclick = () => {
   showToast("CSV exported successfully!", "success");
 };
 
-/* ================= INVENTORY EDIT/DELETE ================= */
+/* ================= UPDATED INVENTORY EDIT/DELETE WITH UNIT ================= */
 document.getElementById("inventoryBody").addEventListener("click", async e => {
-  const btn = e.target.closest('button');
-  if (!btn) return;
-  
-  const id = btn.dataset.id;
-  const tr = btn.closest("tr");
-  
-  if (btn.classList.contains("btn-edit")) {
-    document.getElementById("editItemId").value = id;
+    const btn = e.target.closest('button');
+    if (!btn) return;
     
-    try {
-      showLoading(true);
-      const itemRef = ref(db, `inventory/${id}`);
-      const itemSnap = await get(itemRef);
-      const itemData = itemSnap.val();
-      
-      if (itemData) {
-        const rawName = itemData.name || '';
-        const displayName = rawName.replace(/\s*\(PPE\)\s*$/i, '').trim();
+    const id = btn.dataset.id;
+    const tr = btn.closest("tr");
+    
+    if (btn.classList.contains("btn-edit")) {
+        document.getElementById("editItemId").value = id;
         
-        document.getElementById("itemName").value = displayName;
-        document.getElementById("itemQty").value = parseInt(itemData.quantity) || 0;
-        document.getElementById("itemExpiry").value = itemData.expiryDate || '';
-        document.getElementById("saveBtn").innerText = "Update Item";
-      }
-    } catch (error) {
-      showToast("Error loading item data: " + error.message, "error");
-    } finally {
-      showLoading(false);
-    }
-    
-    document.querySelector('.card.admin-only').scrollIntoView({ 
-      behavior: 'smooth', 
-      block: 'center' 
-    });
-    
-  } else if (btn.classList.contains("btn-delete")) {
-    try {
-      showLoading(true);
-      const itemRef = ref(db, `inventory/${id}`);
-      const itemSnap = await get(itemRef);
-      const itemData = itemSnap.val();
-      
-      if (!itemData) {
-        showToast("Item not found in database", "error");
-        return;
-      }
-      
-      const rawName = itemData.name || '';
-      const displayName = rawName.replace(/\s*\(PPE\)\s*$/i, '').trim();
-      
-      if (confirm(`Are you sure you want to delete "${displayName}" from inventory?`)) {
-        await push(ref(db, "admin_logs"), {
-          date: new Date().toISOString(),
-          admin: auth.currentUser?.email || "Unknown",
-          action: "Delete",
-          itemName: rawName,
-          qty: 0,
-          expiryDate: itemData.expiryDate || null,
-          timestamp: Date.now()
+        try {
+            showLoading(true);
+            const itemRef = ref(db, `inventory/${id}`);
+            const itemSnap = await get(itemRef);
+            const itemData = itemSnap.val();
+            
+            if (itemData) {
+                const rawName = itemData.name || '';
+                const displayName = rawName.replace(/\s*\(PPE\)\s*$/i, '').trim();
+                
+                document.getElementById("itemName").value = displayName;
+                document.getElementById("itemQty").value = parseFloat(itemData.quantity) || 0;
+                document.getElementById("itemExpiry").value = itemData.expiryDate || '';
+                document.getElementById("itemUnit").value = itemData.unit || 'Pc';
+                document.getElementById("saveBtn").innerText = "Update Item";
+            }
+        } catch (error) {
+            showToast("Error loading item data: " + error.message, "error");
+        } finally {
+            showLoading(false);
+        }
+        
+        document.querySelector('.card.admin-only').scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
         });
         
-        await remove(ref(db, `inventory/${id}`));
-        
-        showToast(`"${displayName}" deleted from inventory`, "success");
-      }
-    } catch (error) {
-      showToast("Error deleting item: " + error.message, "error");
-    } finally {
-      showLoading(false);
+    } else if (btn.classList.contains("btn-delete")) {
+        try {
+            showLoading(true);
+            const itemRef = ref(db, `inventory/${id}`);
+            const itemSnap = await get(itemRef);
+            const itemData = itemSnap.val();
+            
+            if (!itemData) {
+                showToast("Item not found in database", "error");
+                return;
+            }
+            
+            const rawName = itemData.name || '';
+            const displayName = rawName.replace(/\s*\(PPE\)\s*$/i, '').trim();
+            
+            if (confirm(`Are you sure you want to delete "${displayName}" from inventory?`)) {
+                await push(ref(db, "admin_logs"), {
+                    date: new Date().toISOString(),
+                    admin: auth.currentUser?.email || "Unknown",
+                    action: "Delete",
+                    itemName: rawName,
+                    qty: 0,
+                    unit: itemData.unit || 'Pc',
+                    expiryDate: itemData.expiryDate || null,
+                    timestamp: Date.now()
+                });
+                
+                await remove(ref(db, `inventory/${id}`));
+                
+                showToast(`"${displayName}" deleted from inventory`, "success");
+            }
+        } catch (error) {
+            showToast("Error deleting item: " + error.message, "error");
+        } finally {
+            showLoading(false);
+        }
     }
-  }
 });
 
-/* ================= ENHANCED ADD/SAVE INVENTORY ================= */
+/* ================= UPDATED SAVE ITEM FUNCTION WITH UNIT ================= */
 document.getElementById("saveBtn").onclick = async () => {
-  const id = document.getElementById("editItemId").value;
-  const name = document.getElementById("itemName").value.trim();
-  const qty = parseInt(document.getElementById("itemQty").value);
-  const expiryDate = document.getElementById("itemExpiry").value;
-  
-  if (!name) {
-    showToast("Item name is required", "error");
-    document.getElementById("itemName").focus();
-    return;
-  }
-  
-  if (isNaN(qty) || qty < 0) {
-    showToast("Please enter a valid quantity (0 or higher)", "error");
-    document.getElementById("itemQty").focus();
-    return;
-  }
-  
-  if (expiryDate) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const selectedDate = new Date(expiryDate);
+    const id = document.getElementById("editItemId").value;
+    const name = document.getElementById("itemName").value.trim();
+    const qty = parseFloat(document.getElementById("itemQty").value);
+    const expiryDate = document.getElementById("itemExpiry").value;
+    const unit = document.getElementById("itemUnit").value || 'Pc';
     
-    if (selectedDate < today) {
-      showToast("Expiry date cannot be in the past", "error");
-      document.getElementById("itemExpiry").focus();
-      return;
+    if (!name) {
+        showToast("Item name is required", "error");
+        document.getElementById("itemName").focus();
+        return;
     }
-  }
-  
-  try {
-    showLoading(true);
     
-    if (id) {
-      const itemData = {
-        name,
-        quantity: qty
-      };
-      
-      if (expiryDate) {
-        itemData.expiryDate = expiryDate;
-      }
-      
-      await update(ref(db, `inventory/${id}`), itemData);
-      
-      await push(ref(db, "admin_logs"), {
-        date: new Date().toISOString(),
-        admin: auth.currentUser.email,
-        action: "Edit",
-        itemName: name,
-        qty: qty,
-        expiryDate: expiryDate || null,
-        timestamp: Date.now()
-      });
-      
-      ["editItemId", "itemName", "itemQty", "itemExpiry"].forEach(i => {
-        document.getElementById(i).value = "";
-      });
-      document.getElementById("saveBtn").innerText = "Add / Update";
-      
-      showToast("Inventory Updated Successfully!", "success");
-      
+    if (isNaN(qty) || qty < 0) {
+        showToast("Please enter a valid quantity (0 or higher)", "error");
+        document.getElementById("itemQty").focus();
+        return;
+    }
+    
+    if (!unit) {
+        showToast("Please select a unit of measurement", "error");
+        document.getElementById("itemUnit").focus();
+        return;
+    }
+    
+    // Unit-specific validation
+    if (unit === 'ml') {
+        // Allow decimal for ml
+        if (qty % 1 !== 0 && !Number.isFinite(qty)) {
+            showToast("Please enter a valid decimal quantity for ml", "error");
+            document.getElementById("itemQty").focus();
+            return;
+        }
     } else {
-      pendingItemData = { name, qty, expiryDate };
-      document.getElementById("categoryModal").style.display = "flex";
+        // Whole numbers for other units
+        if (!Number.isInteger(qty)) {
+            showToast(`Quantity must be a whole number for ${unit}`, "error");
+            document.getElementById("itemQty").focus();
+            return;
+        }
     }
     
-  } catch (error) {
-    showToast("Error saving item: " + error.message, "error");
-  } finally {
-    showLoading(false);
-  }
+    if (expiryDate) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const selectedDate = new Date(expiryDate);
+        
+        if (selectedDate < today) {
+            showToast("Expiry date cannot be in the past", "error");
+            document.getElementById("itemExpiry").focus();
+            return;
+        }
+    }
+    
+    try {
+        showLoading(true);
+        
+        if (id) {
+            const itemData = {
+                name,
+                quantity: qty,
+                unit: unit
+            };
+            
+            if (expiryDate) {
+                itemData.expiryDate = expiryDate;
+            }
+            
+            await update(ref(db, `inventory/${id}`), itemData);
+            
+            await push(ref(db, "admin_logs"), {
+                date: new Date().toISOString(),
+                admin: auth.currentUser.email,
+                action: "Edit",
+                itemName: name,
+                qty: qty,
+                unit: unit,
+                expiryDate: expiryDate || null,
+                timestamp: Date.now()
+            });
+            
+            ["editItemId", "itemName", "itemQty", "itemExpiry", "itemUnit"].forEach(i => {
+                document.getElementById(i).value = "";
+            });
+            document.getElementById("saveBtn").innerText = "Add / Update";
+            
+            showToast("Inventory Updated Successfully!", "success");
+            
+        } else {
+            pendingItemData = { name, qty, expiryDate, unit };
+            document.getElementById("categoryModal").style.display = "flex";
+        }
+        
+    } catch (error) {
+        showToast("Error saving item: " + error.message, "error");
+    } finally {
+        showLoading(false);
+    }
 };
 
 document.getElementById("chooseMedkit").onclick = () => finalizeAddition("Medkit");
@@ -1433,62 +1534,75 @@ document.getElementById("cancelCategory").onclick = () => {
 };
 
 async function finalizeAddition(category) {
-  if (!pendingItemData) return;
-  
-  try {
-    showLoading(true);
+    if (!pendingItemData) return;
     
-    const finalName = category === "PPE" ? 
-      `${pendingItemData.name}${pendingItemData.name.toLowerCase().includes('(ppe)') ? '' : ' (PPE)'}` : 
-      pendingItemData.name;
-    
-    const newKey = push(ref(db, "inventory")).key;
-    
-    const itemData = {
-      name: finalName,
-      quantity: pendingItemData.qty,
-      category: category.toLowerCase(),
-      addedDate: new Date().toISOString()
-    };
-    
-    if (category === "Medkit" && pendingItemData.expiryDate) {
-      itemData.expiryDate = pendingItemData.expiryDate;
+    try {
+        showLoading(true);
+        
+        const finalName = category === "PPE" ? 
+            `${pendingItemData.name}${pendingItemData.name.toLowerCase().includes('(ppe)') ? '' : ' (PPE)'}` : 
+            pendingItemData.name;
+        
+        const newKey = push(ref(db, "inventory")).key;
+        
+        const itemData = {
+            name: finalName,
+            quantity: pendingItemData.qty,
+            unit: pendingItemData.unit,
+            category: category.toLowerCase(),
+            addedDate: new Date().toISOString()
+        };
+        
+        if (category === "Medkit" && pendingItemData.expiryDate) {
+            itemData.expiryDate = pendingItemData.expiryDate;
+        }
+        
+        await update(ref(db, `inventory/${newKey}`), itemData);
+        
+        await push(ref(db, "admin_logs"), {
+            date: new Date().toISOString(),
+            admin: auth.currentUser.email,
+            action: "Add",
+            itemName: finalName,
+            qty: pendingItemData.qty,
+            unit: pendingItemData.unit,
+            expiryDate: pendingItemData.expiryDate || null,
+            timestamp: Date.now()
+        });
+        
+        document.getElementById("categoryModal").style.display = "none";
+        
+        ["itemName", "itemQty", "itemExpiry", "itemUnit"].forEach(i => {
+            document.getElementById(i).value = "";
+        });
+        
+        showToast("Item Added Successfully!", "success");
+        pendingItemData = null;
+        
+    } catch (error) {
+        showToast("Error adding item: " + error.message, "error");
+    } finally {
+        showLoading(false);
     }
-    
-    await update(ref(db, `inventory/${newKey}`), itemData);
-    
-    await push(ref(db, "admin_logs"), {
-      date: new Date().toISOString(),
-      admin: auth.currentUser.email,
-      action: "Add",
-      itemName: finalName,
-      qty: pendingItemData.qty,
-      expiryDate: pendingItemData.expiryDate || null,
-      timestamp: Date.now()
-    });
-    
-    document.getElementById("categoryModal").style.display = "none";
-    
-    ["itemName", "itemQty", "itemExpiry"].forEach(i => {
-      document.getElementById(i).value = "";
-    });
-    
-    showToast("Item Added Successfully!", "success");
-    pendingItemData = null;
-    
-  } catch (error) {
-    showToast("Error adding item: " + error.message, "error");
-  } finally {
-    showLoading(false);
-  }
 }
 
-/* ================= REQUEST FORM EXPIRY INFO ================= */
+/* ================= UPDATED REQUEST FORM EXPIRY INFO ================= */
 document.getElementById("reqItemSelect").addEventListener("change", function() {
     const selectedOption = this.options[this.selectedIndex];
     const expiryDate = selectedOption.dataset.expiry;
+    const unit = selectedOption.dataset.unit || 'Pc';
     const expiryInfo = document.getElementById("itemExpiryInfo");
     const expiryDisplay = document.getElementById("expiryDateDisplay");
+    
+    // Update quantity placeholder based on unit
+    const qtyInput = document.getElementById("reqQty");
+    if (unit === 'ml') {
+        qtyInput.placeholder = `Volume in ${unit}`;
+        qtyInput.step = "0.1";
+    } else {
+        qtyInput.placeholder = `Number of ${unit.toLowerCase()}s`;
+        qtyInput.step = "1";
+    }
     
     if (expiryDate) {
         const status = getExpiryStatus(expiryDate);
@@ -1588,19 +1702,17 @@ document.getElementById("logoutBtn").onclick = () => {
 };
 
 /* ================= MANUAL REQUEST FUNCTIONS ================= */
-// Reset manual request form
 function resetManualRequestForm() {
     editingRequestId = null;
     document.getElementById("manualRequestId").value = "";
     document.getElementById("manualReqName").value = "";
     document.getElementById("manualReqID").value = "";
     
-    // Set default date to today and prevent future dates
     const today = new Date().toISOString().split('T')[0];
     const dateInput = document.getElementById('manualReqDate');
     if (dateInput) {
         dateInput.value = today;
-        dateInput.max = today; // Prevent future dates
+        dateInput.max = today;
     }
     
     document.getElementById("manualReqQty").value = "";
@@ -1609,27 +1721,27 @@ function resetManualRequestForm() {
     document.getElementById("saveManualRequestBtn").innerText = "Save Request";
 }
 
-// Populate items for manual request
 function populateManualRequestItems() {
     const itemSelect = document.getElementById("manualReqItem");
     if (!itemSelect) return;
     
     itemSelect.innerHTML = '<option value="">Select Item...</option>';
     
-    // Get inventory items
     get(ref(db, "inventory")).then(snapshot => {
         const data = snapshot.val() || {};
         Object.keys(data).forEach(key => {
             const item = data[key];
-            const qty = parseInt(item.quantity) || 0;
+            const qty = parseFloat(item.quantity) || 0;
+            const unit = item.unit || 'Pc';
             const rawName = item.name || "";
             const displayName = rawName.replace(/\s*\(PPE\)\s*$/i, '').trim();
             
             if (qty > 0) {
                 const option = document.createElement("option");
                 option.value = key;
-                option.textContent = `${displayName} (${qty} available)`;
+                option.textContent = `${displayName} (${qty} ${unit} available)`;
                 option.dataset.name = rawName;
+                option.dataset.unit = unit;
                 itemSelect.appendChild(option);
             }
         });
@@ -1639,193 +1751,38 @@ function populateManualRequestItems() {
     });
 }
 
-// Save manual request
-document.getElementById("saveManualRequestBtn").onclick = async () => {
-    try {
-        const requestId = document.getElementById("manualRequestId").value;
-        const name = document.getElementById("manualReqName").value.trim();
-        const empID = document.getElementById("manualReqID").value.trim();
-        const date = document.getElementById("manualReqDate").value;
-        const itemSelect = document.getElementById("manualReqItem");
-        const itemId = itemSelect.value;
-        const selectedOption = itemSelect.options[itemSelect.selectedIndex];
-        const itemName = selectedOption?.dataset.name || "";
-        const qty = parseInt(document.getElementById("manualReqQty").value);
-        const purpose = document.getElementById("manualReqPurpose").value.trim();
-        
-        // Validation
-        if (!name) {
-            showToast("Please enter requester name", "error");
-            document.getElementById("manualReqName").focus();
-            return;
-        }
-        
-        if (!empID) {
-            showToast("Please enter employee ID", "error");
-            document.getElementById("manualReqID").focus();
-            return;
-        }
-        
-        if (!date) {
-            showToast("Please select a date", "error");
-            document.getElementById("manualReqDate").focus();
-            return;
-        }
-        
-        // Allow past dates but not future dates
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const selectedDate = new Date(date);
-        selectedDate.setHours(0, 0, 0, 0);
-        
-        if (selectedDate > today) {
-            showToast("Manual request date cannot be in the future", "error");
-            document.getElementById("manualReqDate").focus();
-            return;
-        }
-        
-        if (!itemId) {
-            showToast("Please select an item", "error");
-            document.getElementById("manualReqItem").focus();
-            return;
-        }
-        
-        if (isNaN(qty) || qty <= 0) {
-            showToast("Please enter a valid quantity", "error");
-            document.getElementById("manualReqQty").focus();
-            return;
-        }
-        
-        if (!purpose) {
-            showToast("Please enter a purpose", "error");
-            document.getElementById("manualReqPurpose").focus();
-            return;
-        }
-        
-        // Verify employee name and ID match
-        try {
-            const empSnap = await get(ref(db, "employees"));
-            const employees = empSnap.val() || {};
-            const employeeMatch = Object.values(employees).find(e => 
-                e.name && e.id && 
-                e.name.toLowerCase() === name.toLowerCase() && 
-                e.id === empID
-            );
-            
-            if (!employeeMatch) {
-                showToast("❌ Name and ID do not match any registered employee.", "error");
-                return;
-            }
-        } catch (error) {
-            console.error("Error verifying employee:", error);
-            showToast("⚠️ Could not verify employee database. Proceeding anyway...", "warning");
-        }
-        
-        showLoading(true);
-        
-        // Format date properly
-        const isoDate = new Date(date).toISOString();
-        
-        if (editingRequestId) {
-            // Update existing request
-            await update(ref(db, `transactions/${editingRequestId}`), {
-                date: isoDate,
-                requester: name,
-                empID: empID,
-                itemName: itemName,
-                qty: qty,
-                purpose: purpose,
-                itemId: itemId,
-                isManual: true,
-                timestamp: Date.now(),
-                updatedBy: auth.currentUser?.email || "Admin",
-                updateTime: new Date().toISOString()
-            });
-            
-            showToast("Request updated successfully", "success");
-        } else {
-            // Add new manual request
-            await push(ref(db, "transactions"), {
-                date: isoDate,
-                requester: name,
-                empID: empID,
-                itemName: itemName,
-                qty: qty,
-                purpose: purpose,
-                itemId: itemId,
-                isManual: true,
-                timestamp: Date.now(),
-                createdBy: auth.currentUser?.email || "Admin"
-            });
-            
-            // Deduct from inventory
-            const itemRef = ref(db, `inventory/${itemId}`);
-            const itemSnap = await get(itemRef);
-            const itemData = itemSnap.val();
-            
-            if (itemData) {
-                const newQty = Math.max(0, (itemData.quantity || 0) - qty);
-                await update(itemRef, { quantity: newQty });
-                
-                // Log the transaction
-                await push(ref(db, "admin_logs"), {
-                    date: new Date().toISOString(),
-                    admin: auth.currentUser?.email || "Admin",
-                    action: "Manual Request",
-                    itemName: itemName,
-                    qty: qty,
-                    detail: `Manual request by ${name} (${empID}) - ${purpose}`,
-                    timestamp: Date.now()
-                });
-            }
-            
-            showToast("Manual request added successfully", "success");
-        }
-        
-        // Close modal and reset form
-        document.getElementById("manualRequestModal").style.display = "none";
-        document.body.classList.remove("modal-open");
-        resetManualRequestForm();
-        
-        // Refresh logs
-        loadReports();
-        
-    } catch (error) {
-        console.error("Error saving request:", error);
-        showToast("Error saving request: " + error.message, "error");
-    } finally {
-        showLoading(false);
-    }
-};
-
-// Edit request from logs
-async function editRequestFromLog(logId) {
+/* ================= FIXED EDIT REQUEST FUNCTION ================= */
+async function editRequestFromLog(requestKey) {
     try {
         showLoading(true);
         
-        // Get the request data
-        const requestRef = ref(db, `transactions/${logId}`);
+        if (!requestKey) {
+            showToast("Invalid request key", "error");
+            return;
+        }
+        
+        // Get the request data using the Firebase key
+        const requestRef = ref(db, `transactions/${requestKey}`);
         const requestSnap = await get(requestRef);
         const requestData = requestSnap.val();
         
         if (!requestData) {
-            showToast("Request not found", "error");
+            showToast("Request not found in database", "error");
             return;
         }
         
-        editingRequestId = logId;
+        // Set editing state
+        editingRequestId = requestKey;
         
-        // Populate form
-        document.getElementById("manualRequestId").value = logId;
+        // Populate the form
+        document.getElementById("manualRequestId").value = requestKey;
         document.getElementById("manualReqName").value = requestData.requester || "";
         document.getElementById("manualReqID").value = requestData.empID || "";
         
-        // Format date for input (YYYY-MM-DD)
         const requestDate = requestData.date ? new Date(requestData.date) : new Date();
         const formattedDate = requestDate.toISOString().split('T')[0];
         document.getElementById("manualReqDate").value = formattedDate;
         
-        // Prevent future dates
         const today = new Date().toISOString().split('T')[0];
         const dateInput = document.getElementById('manualReqDate');
         dateInput.max = today;
@@ -1835,26 +1792,27 @@ async function editRequestFromLog(logId) {
         document.getElementById("manualReqStatus").value = "Completed";
         document.getElementById("saveManualRequestBtn").innerText = "Update Request";
         
-        // Populate items and select the current one
+        // Populate items
         await populateManualRequestItems();
         
-        // Wait for items to populate, then select the correct one
+        // Set the selected item after a short delay to ensure options are loaded
         setTimeout(() => {
             const itemSelect = document.getElementById("manualReqItem");
             if (itemSelect && requestData.itemId) {
                 itemSelect.value = requestData.itemId;
                 
-                // If item not in list, add it
+                // If item doesn't exist in dropdown (maybe deleted), add it
                 if (!itemSelect.value) {
                     const option = document.createElement("option");
                     option.value = requestData.itemId;
-                    option.textContent = `${requestData.itemName} (0 available)`;
+                    option.textContent = `${requestData.itemName} (0 ${requestData.unit || 'Pc'} available)`;
                     option.dataset.name = requestData.itemName;
+                    option.dataset.unit = requestData.unit || 'Pc';
                     option.selected = true;
                     itemSelect.appendChild(option);
                 }
             }
-        }, 300);
+        }, 500);
         
         // Show modal
         document.getElementById("manualRequestModal").style.display = "flex";
@@ -1868,24 +1826,29 @@ async function editRequestFromLog(logId) {
     }
 }
 
-// Delete request from logs
-async function deleteRequestFromLog(logId) {
-    if (!confirm("Are you sure you want to delete this request?")) return;
+/* ================= FIXED DELETE REQUEST FUNCTION ================= */
+async function deleteRequestFromLog(requestKey) {
+    if (!confirm("Are you sure you want to delete this request? This will restore the inventory quantity.")) return;
     
     try {
         showLoading(true);
         
-        // Get request data first
-        const requestRef = ref(db, `transactions/${logId}`);
+        if (!requestKey) {
+            showToast("Invalid request key", "error");
+            return;
+        }
+        
+        // Get the request data
+        const requestRef = ref(db, `transactions/${requestKey}`);
         const requestSnap = await get(requestRef);
         const requestData = requestSnap.val();
         
         if (!requestData) {
-            showToast("Request not found", "error");
+            showToast("Request not found in database", "error");
             return;
         }
         
-        // Restore inventory
+        // Restore inventory before deleting the request
         if (requestData.itemId) {
             const itemRef = ref(db, `inventory/${requestData.itemId}`);
             const itemSnap = await get(itemRef);
@@ -1894,10 +1857,22 @@ async function deleteRequestFromLog(logId) {
             if (itemData) {
                 const restoredQty = (itemData.quantity || 0) + (requestData.qty || 0);
                 await update(itemRef, { quantity: restoredQty });
+                
+                // Log the restoration
+                await push(ref(db, "admin_logs"), {
+                    date: new Date().toISOString(),
+                    admin: auth.currentUser?.email || "Unknown",
+                    action: "Restore Inventory",
+                    itemName: requestData.itemName,
+                    qty: requestData.qty || 0,
+                    unit: requestData.unit || 'Pc',
+                    detail: `Restored ${requestData.qty} ${requestData.unit} from deleted request by ${requestData.requester}`,
+                    timestamp: Date.now()
+                });
             }
         }
         
-        // Delete the request
+        // Delete the transaction
         await remove(requestRef);
         
         // Log the deletion
@@ -1907,13 +1882,14 @@ async function deleteRequestFromLog(logId) {
             action: "Delete Request",
             itemName: `Request: ${requestData.itemName}`,
             qty: requestData.qty || 0,
+            unit: requestData.unit || 'Pc',
             detail: `Deleted request by ${requestData.requester}`,
             timestamp: Date.now()
         });
         
-        showToast("Request deleted successfully", "success");
+        showToast("Request deleted successfully. Inventory restored.", "success");
         
-        // Refresh logs
+        // Reload reports to reflect changes
         loadReports();
         
     } catch (error) {
@@ -1923,6 +1899,188 @@ async function deleteRequestFromLog(logId) {
         showLoading(false);
     }
 }
+
+/* ================= FIXED SAVE MANUAL REQUEST ================= */
+document.getElementById("saveManualRequestBtn").onclick = async () => {
+    try {
+        const requestKey = document.getElementById("manualRequestId").value;
+        const name = document.getElementById("manualReqName").value.trim();
+        const empID = document.getElementById("manualReqID").value.trim();
+        const date = document.getElementById("manualReqDate").value;
+        const itemSelect = document.getElementById("manualReqItem");
+        const itemId = itemSelect.value;
+        const selectedOption = itemSelect.options[itemSelect.selectedIndex];
+        const itemName = selectedOption?.dataset.name || "";
+        const itemUnit = selectedOption?.dataset.unit || "Pc";
+        const qty = parseFloat(document.getElementById("manualReqQty").value);
+        const purpose = document.getElementById("manualReqPurpose").value.trim();
+        
+        // ... (validation code remains the same) ...
+        
+        showLoading(true);
+        
+        const isoDate = new Date(date).toISOString();
+        
+        const itemRef = ref(db, `inventory/${itemId}`);
+        const itemSnap = await get(itemRef);
+        const itemData = itemSnap.val();
+        const unit = itemData?.unit || itemUnit;
+        
+        if (requestKey && requestKey.trim() !== "") {
+            // EDITING EXISTING REQUEST
+            
+            // Get the original request data
+            const originalRequestRef = ref(db, `transactions/${requestKey}`);
+            const originalRequestSnap = await get(originalRequestRef);
+            const originalRequest = originalRequestSnap.val();
+            
+            if (!originalRequest) {
+                showToast("Original request data not found", "error");
+                return;
+            }
+            
+            const originalQty = originalRequest.qty || 0;
+            const originalItemId = originalRequest.itemId;
+            const isSameItem = originalItemId === itemId;
+            
+            // Handle inventory adjustments
+            if (isSameItem) {
+                // SAME ITEM, DIFFERENT QUANTITY
+                const quantityDifference = qty - originalQty;
+                
+                if (quantityDifference !== 0) {
+                    if (itemData) {
+                        if (quantityDifference > 0) {
+                            // INCREASING quantity - need to deduct more from inventory
+                            if (itemData.quantity < quantityDifference) {
+                                showToast(`Cannot increase quantity. Only ${itemData.quantity} ${unit} available in stock.`, "error");
+                                return;
+                            }
+                            const newQty = itemData.quantity - quantityDifference;
+                            await update(itemRef, { quantity: newQty });
+                        } else {
+                            // DECREASING quantity - need to restore some to inventory
+                            const quantityToRestore = Math.abs(quantityDifference);
+                            const newQty = itemData.quantity + quantityToRestore;
+                            await update(itemRef, { quantity: newQty });
+                        }
+                    }
+                }
+            } else {
+                // DIFFERENT ITEM - restore original, deduct new
+                
+                // 1. Restore original item quantity
+                if (originalItemId) {
+                    const originalItemRef = ref(db, `inventory/${originalItemId}`);
+                    const originalItemSnap = await get(originalItemRef);
+                    const originalItemData = originalItemSnap.val();
+                    
+                    if (originalItemData) {
+                        const restoredQty = originalItemData.quantity + originalQty;
+                        await update(originalItemRef, { quantity: restoredQty });
+                    }
+                }
+                
+                // 2. Deduct new quantity from new item
+                if (itemData) {
+                    if (itemData.quantity < qty) {
+                        showToast(`Insufficient stock! Only ${itemData.quantity} ${unit} available.`, "error");
+                        return;
+                    }
+                    const newQty = itemData.quantity - qty;
+                    await update(itemRef, { quantity: newQty });
+                }
+            }
+            
+            // Update the request
+            await update(originalRequestRef, {
+                date: isoDate,
+                requester: name,
+                empID: empID,
+                itemName: itemName,
+                qty: qty,
+                unit: unit,
+                purpose: purpose,
+                itemId: itemId,
+                isManual: true,
+                timestamp: Date.now(),
+                updatedBy: auth.currentUser?.email || "Admin",
+                updateTime: new Date().toISOString(),
+                originalQty: originalQty,
+                originalItemId: originalItemId
+            });
+            
+            // Log the edit
+            await push(ref(db, "admin_logs"), {
+                date: new Date().toISOString(),
+                admin: auth.currentUser?.email || "Admin",
+                action: "Edit Request",
+                itemName: itemName,
+                qty: qty,
+                unit: unit,
+                detail: `Edited request from ${originalRequest?.requester || 'Unknown'} (${originalQty} ${originalRequest?.unit || 'Pc'}) to ${name} (${qty} ${unit})`,
+                timestamp: Date.now()
+            });
+            
+            showToast(`Request updated successfully. ${isSameItem ? 
+                (qty > originalQty ? `Added ${qty - originalQty} more ${unit}` : 
+                 qty < originalQty ? `Reduced by ${originalQty - qty} ${unit}` : 
+                 'Quantity unchanged') : 
+                'Item changed'}`, "success");
+                
+        } else {
+            // NEW REQUEST (existing code remains the same)
+            const newTransactionRef = push(ref(db, "transactions"));
+            const transactionKey = newTransactionRef.key;
+            
+            await set(newTransactionRef, {
+                date: isoDate,
+                requester: name,
+                empID: empID,
+                itemName: itemName,
+                qty: qty,
+                unit: unit,
+                purpose: purpose,
+                itemId: itemId,
+                isManual: true,
+                timestamp: Date.now(),
+                createdBy: auth.currentUser?.email || "Admin",
+                transactionId: transactionKey
+            });
+            
+            if (itemData) {
+                const newQty = Math.max(0, (itemData.quantity || 0) - qty);
+                await update(itemRef, { quantity: newQty });
+                
+                await push(ref(db, "admin_logs"), {
+                    date: new Date().toISOString(),
+                    admin: auth.currentUser?.email || "Admin",
+                    action: "Manual Request",
+                    itemName: itemName,
+                    qty: qty,
+                    unit: unit,
+                    detail: `Manual request by ${name} (${empID}) - ${purpose}`,
+                    timestamp: Date.now()
+                });
+            }
+            
+            showToast(`Manual request for ${qty} ${unit} of ${itemName} added successfully`, "success");
+        }
+        
+        document.getElementById("manualRequestModal").style.display = "none";
+        document.body.classList.remove("modal-open");
+        resetManualRequestForm();
+        
+        // Reload reports
+        loadReports();
+        
+    } catch (error) {
+        console.error("Error saving request:", error);
+        showToast("Error saving request: " + error.message, "error");
+    } finally {
+        showLoading(false);
+    }
+};
 
 /* ================= ENHANCED INITIALIZATION ================= */
 document.addEventListener('DOMContentLoaded', () => {
@@ -1953,7 +2111,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   
-  // Expiry alert modal setup
   document.querySelectorAll('#expiryFilterTabs .filter-btn').forEach(btn => {
     btn.onclick = function() {
       document.querySelectorAll('#expiryFilterTabs .filter-btn').forEach(b => {
@@ -1973,14 +2130,12 @@ document.addEventListener('DOMContentLoaded', () => {
     printExpiryReport();
   };
   
-  // Set minimum date for expiry input
   const today = new Date().toISOString().split('T')[0];
   const expiryInput = document.getElementById('itemExpiry');
   if (expiryInput) {
     expiryInput.min = today;
   }
   
-  // Setup manual request modal
   const manualRequestModal = document.getElementById("manualRequestModal");
   const cancelManualBtn = document.getElementById("cancelManualRequestBtn");
   
@@ -2011,17 +2166,14 @@ document.addEventListener('DOMContentLoaded', () => {
       };
   }
   
-  // Show/Hide manual request button based on log type
   const logTypeSelect = document.getElementById("logTypeSelect");
   const manualBtn = document.getElementById("addManualRequestBtn");
   
   if (logTypeSelect && manualBtn) {
-    // Set initial state
     if (logTypeSelect.value === "requests") {
         manualBtn.style.display = "inline-flex";
     }
     
-    // Update on change
     logTypeSelect.onchange = function() {
         currentLogView = this.value;
         if (this.value === "requests") {
@@ -2033,12 +2185,70 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
   
-  // Set default date for manual request and prevent future dates
   const dateInput = document.getElementById('manualReqDate');
   if (dateInput) {
       const today = new Date().toISOString().split('T')[0];
       dateInput.value = today;
-      dateInput.max = today; // This prevents selecting future dates
+      dateInput.max = today;
+  }
+  
+  // Dynamic unit placeholder
+  document.getElementById("itemQty")?.addEventListener("input", function() {
+    const unit = document.getElementById("itemUnit").value;
+    if (unit === 'ml') {
+        this.step = "0.1";
+    } else {
+        this.step = "1";
+    }
+  });
+  
+  document.getElementById("itemUnit")?.addEventListener("change", function() {
+    const qtyInput = document.getElementById("itemQty");
+    const unit = this.value;
+    switch(unit) {
+        case 'Tablet':
+            qtyInput.placeholder = "Number of tablets";
+            break;
+        case 'ml':
+            qtyInput.placeholder = "Volume in ml";
+            qtyInput.step = "0.1";
+            break;
+        case 'Box':
+            qtyInput.placeholder = "Number of boxes";
+            break;
+        case 'Bottle':
+            qtyInput.placeholder = "Number of bottles";
+            break;
+        case 'Pack':
+            qtyInput.placeholder = "Number of packs";
+            break;
+        case 'Pair':
+            qtyInput.placeholder = "Number of pairs";
+            break;
+        case 'Set':
+            qtyInput.placeholder = "Number of sets";
+            break;
+        case 'Vial':
+            qtyInput.placeholder = "Number of vials";
+            break;
+        case 'Tube':
+            qtyInput.placeholder = "Number of tubes";
+            break;
+        case 'Can':
+            qtyInput.placeholder = "Number of cans";
+            break;
+        case 'Carton':
+            qtyInput.placeholder = "Number of cartons";
+            break;
+        default:
+            qtyInput.placeholder = "Quantity";
+            qtyInput.step = "1";
+    }
+  });
+  
+  // Initialize with default placeholder
+  if (document.getElementById("itemUnit")) {
+    document.getElementById("itemUnit").dispatchEvent(new Event('change'));
   }
   
   document.addEventListener('keydown', (e) => {
@@ -2053,7 +2263,6 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById("loginModal").style.display = "flex";
     }
     
-    // Close manual request modal with Escape key
     if (e.key === 'Escape' && manualRequestModal.style.display === 'flex') {
       manualRequestModal.style.display = "none";
       document.body.classList.remove("modal-open");
@@ -2070,5 +2279,5 @@ document.addEventListener('DOMContentLoaded', () => {
     showToast("You are offline. Some features may be limited.", "warning");
   });
   
-  console.log("Medical Inventory System with Expiry Tracking initialized successfully");
+  console.log("Medical Inventory System with Unit Measurement initialized successfully");
 });
