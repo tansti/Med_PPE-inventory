@@ -1706,3 +1706,115 @@ body {
     justify-content: center;
     margin-top: 20px;
 }
+
+/* Excel Import Modal Styles */
+#importPreviewTable {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+#importPreviewTable th {
+    background: #f8fafc;
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #475569;
+    border-bottom: 2px solid #e2e8f0;
+    font-size: 0.85rem;
+}
+
+#importPreviewTable td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 0.9rem;
+}
+
+#importPreviewTable tr:last-child td {
+    border-bottom: none;
+}
+
+#importPreviewTable tr:hover td {
+    background: #f1f5f9;
+}
+
+/* Progress bar animation */
+@keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
+
+.processing-item {
+    animation: pulse 1.5s infinite;
+}
+
+/* Validation styles */
+.valid-row {
+    background: rgba(34, 197, 94, 0.05) !important;
+}
+
+.invalid-row {
+    background: rgba(239, 68, 68, 0.05) !important;
+}
+
+.error-message {
+    color: #ef4444;
+    font-size: 0.85rem;
+    margin-top: 5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.success-message {
+    color: #22c55e;
+    font-size: 0.85rem;
+    margin-top: 5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* File upload area */
+.file-upload-area {
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: rgba(255, 255, 255, 0.5);
+    margin: 20px 0;
+}
+
+.file-upload-area:hover {
+    border-color: #3b82f6;
+    background: rgba(59, 130, 246, 0.05);
+}
+
+.file-upload-area.dragover {
+    border-color: #3b82f6;
+    background: rgba(59, 130, 246, 0.1);
+    transform: scale(1.02);
+}
+
+.file-upload-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+    color: #3b82f6;
+}
+
+.file-upload-text {
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 8px;
+}
+.file-upload-subtext {
+    font-size: 0.9rem;
+    color: #64748b;
+}
