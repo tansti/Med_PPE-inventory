@@ -627,6 +627,7 @@ button:active {
 }
 
 /* ================= ELEGANT MODALS ================= */
+/* ================= ELEGANT MODALS ================= */
 .modal { 
     display: none; 
     position: fixed; 
@@ -634,10 +635,12 @@ button:active {
     background: rgba(0, 0, 0, 0.25);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    align-items: center; 
+    align-items: flex-start; /* Changed from center to flex-start */
     justify-content: center; 
     z-index: 2000;
     animation: modalFadeIn 0.3s ease;
+    overflow-y: auto; /* Enable scrolling if needed */
+    padding: 20px; /* Add padding for mobile */
 }
 
 @keyframes modalFadeIn {
@@ -651,15 +654,16 @@ button:active {
     -webkit-backdrop-filter: blur(20px) saturate(200%);
     padding: 35px; 
     border-radius: 24px; 
-    width: 90%; 
-    max-width: 400px; 
+    width: 100%; /* Changed from 90% */
+    max-width: 400px; /* Keep max-width but let it be flexible */
     box-shadow: 
         0 20px 60px rgba(0, 0, 0, 0.15),
         inset 0 1px 0 rgba(255, 255, 255, 0.8);
     border: 1px solid rgba(255, 255, 255, 0.4);
     animation: modalSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    max-height: 85vh;
+    max-height: 90vh;
     overflow-y: auto;
+    margin: 20px auto; /* Center with margin */
 }
 
 @keyframes modalSlideIn {
@@ -693,7 +697,7 @@ button:active {
 #employeeModal .admin-form-grid {
     display: grid;
     grid-template-columns: 1fr 1fr auto;
-    gap: 12px;
+    gap: 10px;
     align-items: end;
     margin-bottom: 20px;
 }
@@ -783,98 +787,100 @@ body.is-admin .btn-delete-emp {
     #employeeModal .modal-content {
         width: 95vw;
         padding: 20px;
+        max-height: 85vh;
+        overflow-y: auto;
     }
     
     #employeeModal .admin-form-grid {
         grid-template-columns: 1fr;
-        gap: 8px;
+        gap: 12px;
+        align-items: stretch;
+    }
+    
+    #employeeModal .admin-form-grid input,
+    #employeeModal .admin-form-grid button {
+        margin-bottom: 0;
+        height: 48px;
+        box-sizing: border-box;
+        width: 100%;
+    }
+    
+    #employeeModal .admin-form-grid input[type="hidden"] {
+        display: none;
+    }
+    
+    #employeeModal .admin-form-grid button {
+        grid-column: 1;
+        grid-row: auto;
+        white-space: nowrap;
+        min-width: 100%;
+        margin-top: 0;
     }
 }
 
 @media (max-width: 768px) {
-    .container {
-        margin-top: 90px;
-        padding: 0 10px;
+    .modal {
+        padding: 15px;
+        align-items: center; /* Center vertically on mobile */
     }
     
-    .nav-container {
-        padding: 0 15px;
+    .modal-content {
+        padding: 25px;
+        max-height: 85vh;
+        margin: 0 auto; /* Center the modal */
     }
     
-    .card {
-        padding: 20px;
-        border-radius: 16px;
+    #loginModal .modal-content {
+        padding: 25px;
+        max-width: 350px;
     }
     
-    .card-header-flex {
+    #loginModal input {
+        padding: 12px 14px;
+        font-size: 16px; /* Prevent iOS zoom */
+    }
+    
+    #loginModal .modal-btns {
         flex-direction: column;
-        align-items: flex-start;
-        gap: 15px;
+        gap: 8px;
     }
     
-    .filter-buttons {
+    #loginModal .modal-btns button {
         width: 100%;
-        justify-content: center;
     }
-    
-    .filter-btn {
-        flex: 1;
-        text-align: center;
-        padding: 10px 12px;
-    }
-    
-    .request-grid, .admin-form-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .request-grid textarea,
-    .request-grid button,
-    .admin-form-grid button {
-        grid-column: span 1;
-    }
-    
-    .avatar-circle, .alert-badge {
-        width: 40px;
-        height: 40px;
-    }
-    
-    .btn-icon {
-        width: 48px;
-        height: 48px;
-    }
-    
-    #toggleIcon {
-        font-size: 24px;
-    }
-    
-    #inventoryTable th,
-    #inventoryTable td {
-        padding: 12px 15px;
-    }
-    
-    .table-actions {
-        flex-direction: column;
-        gap: 6px;
-    }
-    
-    .btn-table {
-        padding: 8px 12px;
-        font-size: 0.8rem;
-        min-width: 44px;
-        min-height: 44px;
-        display: flex !important;
-        align-items: center;
-        justify-content: center;
-    } 
-  
-  /* Ensure admin-only elements show properly */
-        body.is-admin td.admin-only {
-        display: table-cell !important;
-  }
-
 }
 
-
+@media (max-width: 480px) {
+    .modal {
+        padding: 10px;
+        background: rgba(0, 0, 0, 0.15); /* Lighter background on very small screens */
+    }
+    
+    .modal-content {
+        padding: 20px;
+        border-radius: 20px;
+        max-height: 80vh;
+    }
+    
+    #loginModal .modal-content {
+        padding: 20px;
+        max-width: 320px;
+    }
+    
+    .modal-content h3 {
+        font-size: 1.2rem;
+        margin-bottom: 15px;
+    }
+    
+    #loginModal input {
+        padding: 14px 16px; /* Keep touch-friendly size */
+        margin-bottom: 12px;
+    }
+    
+    #loginModal .modal-btns {
+        margin-top: 15px;
+    }
+}
 
 @media (max-width: 600px) {
     #employeeModal .modal-content {
@@ -933,6 +939,57 @@ body.is-admin .btn-delete-emp {
     
     #inventoryTable {
         font-size: 0.9rem;
+    }
+}
+
+/* ================= MODAL ANIMATION VARIATIONS ================= */
+/* Different animation for login modal */
+#loginModal.modal {
+    animation: modalFadeIn 0.2s ease;
+}
+
+#loginModal .modal-content {
+    animation: modalSlideUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes modalSlideUp {
+    from { 
+        opacity: 0; 
+        transform: translateY(20px) scale(0.98); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateY(0) scale(1); 
+    }
+}
+
+/* ================= ENHANCED MODAL CONTROLS ================= */
+.modal-open {
+    overflow: hidden;
+}
+
+/* Improve modal closing animation */
+.modal.modal-closing {
+    animation: modalFadeOut 0.2s ease forwards;
+}
+
+@keyframes modalFadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+.modal.modal-closing .modal-content {
+    animation: modalSlideDown 0.2s ease forwards;
+}
+
+@keyframes modalSlideDown {
+    from { 
+        opacity: 1; 
+        transform: translateY(0) scale(1); 
+    }
+    to { 
+        opacity: 0; 
+        transform: translateY(20px) scale(0.98); 
     }
 }
 
