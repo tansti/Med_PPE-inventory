@@ -156,16 +156,30 @@
               <button id="reqBtn" class="btn-success">Submit Request</button>
           </div>
       </section>
-
+      
         <section class="card admin-only">
             <h2>⚙️ Inventory Management</h2>
             <div class="admin-form-grid">
                 <input type="hidden" id="editItemId">
                 <input type="text" id="itemName" placeholder="Item Name" aria-label="Item Name">
                 <input type="number" id="itemQty" placeholder="Quantity" aria-label="Quantity">
+                <select id="itemUnit" aria-label="Unit of Measurement">
+                    <option value="Pc">Piece (Pc)</option>
+                    <option value="Tablet">Tablet</option>
+                    <option value="ml">ml</option>
+                    <option value="Box">Box</option>
+                    <option value="Bottle">Bottle</option>
+                    <option value="Pack">Pack</option>
+                    <option value="Pair">Pair</option>
+                    <option value="Set">Set</option>
+                    <option value="Vial">Vial</option>
+                    <option value="Tube">Tube</option>
+                    <option value="Can">Can</option>
+                    <option value="Carton">Carton</option>
+                </select>
                 <input type="date" id="itemExpiry" placeholder="Expiry Date (Optional)" 
                        aria-label="Expiry Date (Optional for Medkit items)" 
-                       min="<?php echo date('Y-m-d'); ?>">
+                       min="">
                 <button id="saveBtn" class="btn-primary">Add / Update</button>
             </div>
             <div class="form-note" style="font-size: 0.85rem; color: #64748b; margin-top: 8px;">
@@ -198,30 +212,29 @@
         </section>
 
         <section class="card admin-only">
-    <h2>📊 Logs</h2>
-    <div class="logs-controls">
-        <div class="logs-filter-group">
-            <label for="logTypeSelect" class="logs-filter-label">Log Type:</label>
-            <select id="logTypeSelect">
-                <option value="requests">Requests</option>
-                <option value="admin">Admin</option>
-            </select>
-        </div>
-        <div class="logs-filter-group">
-            <label for="logFilterMonth" class="logs-filter-label">Filter Month:</label>
-            <input type="month" id="logFilterMonth">
-        </div>
-        <!-- Add Manual Request Button HERE -->
-        <button id="addManualRequestBtn" class="btn-success" style="display: none;">
-            <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" style="margin-right: 6px;">
-                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-            </svg>
-            Manual Request
-        </button>
-        <button id="downloadCsvBtn" class="btn-success">Export CSV</button>
-    </div>
-    <div id="reportTableContainer" class="table-scroll"></div>
-</section>
+            <h2>📊 Logs</h2>
+            <div class="logs-controls">
+                <div class="logs-filter-group">
+                    <label for="logTypeSelect" class="logs-filter-label">Log Type:</label>
+                    <select id="logTypeSelect">
+                        <option value="requests">Requests</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="logs-filter-group">
+                    <label for="logFilterMonth" class="logs-filter-label">Filter Month:</label>
+                    <input type="month" id="logFilterMonth">
+                </div>
+                <button id="addManualRequestBtn" class="btn-success" style="display: none;">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" style="margin-right: 6px;">
+                        <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                    </svg>
+                    Manual Request
+                </button>
+                <button id="downloadCsvBtn" class="btn-success">Export CSV</button>
+            </div>
+            <div id="reportTableContainer" class="table-scroll"></div>
+        </section>
     </div>
     <script type="module" src="app.js"></script>
 </body>
