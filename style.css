@@ -498,6 +498,32 @@ textarea {
     color: #8b5cf6;
 }
 
+/* ================= UNIT BADGES ================= */
+.unit-badge {
+    display: inline-block;
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--primary);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: 8px;
+    vertical-align: middle;
+}
+
+.item-with-unit {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.unit-display {
+    font-size: 0.8rem;
+    color: #64748b;
+    margin-left: 4px;
+}
+
 /* ================= ACTIONS BUTTONS ================= */
 .table-actions {
     display: flex;
