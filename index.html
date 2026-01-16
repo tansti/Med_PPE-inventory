@@ -180,14 +180,20 @@
                 <input type="date" id="itemExpiry" placeholder="Expiry Date (Optional)" 
                        aria-label="Expiry Date (Optional for Medkit items)" 
                        min="">
-                <button id="saveBtn" class="btn-primary">Add / Update</button>
+              <button id="saveBtn" class="btn-primary">Add / Update</button>
             </div>
             <div class="form-note" style="font-size: 0.85rem; color: #64748b; margin-top: 8px;">
                 ⓘ Expiry date is only applicable for Medkit items
             </div>
-        </section>
-
-       <section class="card">
+<div class="admin-form-grid" style="margin-top: 20px;">
+    <button id="importExcelBtn" class="btn-success" style="grid-column: span 2;">
+        📥 Import from Excel
+    </button>
+</div> 
+  
+        </section>  
+ 
+       <section class="card"> 
           <div class="card-header-flex">
             <h2>📦 Current Stock</h2>
             <div class="filter-buttons admin-only">
@@ -236,6 +242,87 @@
             <div id="reportTableContainer" class="table-scroll"></div>
         </section>
     </div>
+
+<div id="excelImportModal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+        <h3>📥 Import Inventory from Excel</h3>
+        
+        <div style="margin: 20px 0; padding: 15px; background: rgba(59, 130, 246, 0.1); border-radius: 10px;">
+            <h4 style="margin-top: 0; color: #3b82f6;">📋 Excel Format Requirements:</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                <div style="padding: 10px; background: white; border-radius: 8px;">
+                    <strong>Column A:</strong> Item Name
+                </div>
+                <div style="padding: 10px; background: white; border-radius: 8px;">
+                    <strong>Column B:</strong> Quantity
+                </div>
+                <div style="padding: 10px; background: white; border-radius: 8px;">
+                    <strong>Column C:</strong> Unit
+                </div>
+                <div style="padding: 10px; background: white; border-radius: 8px;">
+                    <strong>Column D:</strong> Expiry Date
+                </div>
+                <div style="padding: 10px; background: white; border-radius: 8px; grid-column: span 2;">
+                    <strong>Column E:</strong> Category (Medkit/PPE)
+                </div>
+            </div>
+            <p style="margin: 10px 0 0 0; font-size: 0.9rem; color: #64748b;">
+                ⓘ First row should be headers. Expiry Date format: YYYY-MM-DD (optional for Medkit)
+            </p>
+        </div>
+        
+        <div style="text-align: center; margin: 20px 0;">
+            <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" 
+                   style="display: none;">
+            <label for="excelFileInput" class="btn-primary" 
+                   style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; padding: 12px 24px;">
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+                </svg>
+                Choose Excel File
+            </label>
+            <div id="fileName" style="margin-top: 10px; color: #64748b; font-size: 0.9rem;"></div>
+        </div>
+        
+        <div id="previewTable" style="max-height: 300px; overflow-y: auto; margin: 20px 0; display: none;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f1f5f9;">
+                        <th style="padding: 10px; border: 1px solid #e2e8f0;">Item Name</th>
+                        <th style="padding: 10px; border: 1px solid #e2e8f0;">Quantity</th>
+                        <th style="padding: 10px; border: 1px solid #e2e8f0;">Unit</th>
+                        <th style="padding: 10px; border: 1px solid #e2e8f0;">Expiry</th>
+                        <th style="padding: 10px; border: 1px solid #e2e8f0;">Category</th>
+                    </tr>
+                </thead>
+                <tbody id="previewTableBody"></tbody>
+            </table>
+        </div>
+        
+        <div class="modal-btns" style="margin-top: 20px;">
+            <button id="processImportBtn" class="btn-success" disabled>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" style="margin-right: 8px;">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+                Import Items
+            </button>
+            <button id="cancelImportBtn" class="btn-text">Cancel</button>
+        </div>
+        
+        <div id="importProgress" style="margin-top: 20px; display: none;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                <span>Importing...</span>
+                <span id="progressPercent">0%</span>
+            </div>
+            <div style="width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden;">
+                <div id="progressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #22c55e, #16a34a); transition: width 0.3s;"></div>
+            </div>
+            <div id="importStatus" style="margin-top: 10px; font-size: 0.9rem; color: #64748b;"></div>
+        </div>
+    </div>
+</div>
     <script type="module" src="app.js"></script>
+<!-- Add this in the <head> section -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </body>
 </html>
