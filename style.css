@@ -229,9 +229,32 @@ textarea {
     animation: none;
 }
 
+#expiryAlert {
+    background: rgba(245, 158, 11, 0.15);
+    color: #d97706;
+    border-color: rgba(245, 158, 11, 0.2);
+    cursor: pointer;
+}
+
+#expiryAlert.critical {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
 @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.7; }
+}
+
+@keyframes pulse-warning {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+@keyframes pulse-expired {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
 }
 
 #authBar {
@@ -249,6 +272,56 @@ textarea {
     justify-content: center;
     font-size: 14px;
     font-weight: 600;
+}
+
+/* ================= EXPIRY STATUS BADGES ================= */
+.expiry-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: 8px;
+}
+
+.expiry-valid {
+    background: rgba(34, 197, 94, 0.15);
+    color: #16a34a;
+}
+
+.expiry-warning {
+    background: rgba(245, 158, 11, 0.15);
+    color: #d97706;
+    animation: pulse-warning 2s infinite;
+}
+
+.expiry-expired {
+    background: rgba(239, 68, 68, 0.15);
+    color: #dc2626;
+    animation: pulse-expired 1.5s infinite;
+}
+
+/* Expiry date display in table */
+.expiry-date {
+    font-size: 0.85rem;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    flex-direction: column;
+}
+
+.expiry-date.expired {
+    color: #dc2626;
+    font-weight: bold;
+}
+
+.expiry-date.warning {
+    color: #d97706;
+    font-weight: bold;
 }
 
 /* ================= STOCK FILTER BUTTONS - ENHANCED ================= */
@@ -689,7 +762,8 @@ button:active {
 #loginModal .modal-content,
 #lowStockModal .modal-content,
 #employeeModal .modal-content,
-#categoryModal .modal-content {
+#categoryModal .modal-content,
+#expiryAlertModal .modal-content {
     max-width: 450px;
     width: 100%;
 }
@@ -879,6 +953,10 @@ body.is-admin .btn-delete-emp {
     
     #loginModal .modal-btns button {
         width: 100%;
+    }
+    
+    .admin-form-grid {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -1181,6 +1259,35 @@ body.mode-ppe:not(.is-admin) option.cat-medkit { display: none; }
     min-width: 100px;
 }
 
+/* Expiry column */
+.log-expiry {
+    min-width: 90px;
+}
+
+.expiry-log-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin: 2px 0;
+}
+
+.expiry-log-badge.added {
+    background: rgba(34, 197, 94, 0.15);
+    color: #16a34a;
+}
+
+.expiry-log-badge.updated {
+    background: rgba(245, 158, 11, 0.15);
+    color: #d97706;
+}
+
+.expiry-log-badge.removed {
+    background: rgba(239, 68, 68, 0.15);
+    color: #dc2626;
+}
+
 /* Action/Item column */
 .log-action-item {
     min-width: 200px;
@@ -1467,4 +1574,68 @@ body {
         box-shadow: none;
         border: 1px solid #ddd;
     }
+}
+
+/* ================= EXPIRY ALERT LIST STYLES ================= */
+#expiryAlertList {
+    max-height: 300px;
+    overflow-y: auto;
+    margin: 15px 0;
+    padding: 0;
+    list-style: none;
+}
+
+#expiryAlertList li {
+    padding: 10px;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#expiryAlertList li:last-child {
+    border-bottom: none;
+}
+
+.expiry-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.expiry-item-name {
+    font-weight: 600;
+}
+
+.expiry-item-date {
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+.expiry-item-qty {
+    font-weight: 600;
+    color: #3b82f6;
+}
+
+/* Expiry filter tabs */
+#expiryFilterTabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+#expiryFilterTabs .filter-btn {
+    flex: 1;
+    text-align: center;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+#expiryFilterTabs .filter-btn.active {
+    background: #3b82f6;
+    color: white;
 }
