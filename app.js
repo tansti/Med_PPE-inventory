@@ -11,7 +11,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
- 
+
 /* ================= GLOBAL STATE ================= */
 let allLogs = [];
 let lowStockItems = [];
@@ -545,146 +545,118 @@ setupModal("importExcelBtn", "excelImportModal", "cancelImportBtn", () => {
   resetImportModal();
 });
 
-/* ================= ENHANCED INVENTORY SYNC WITH SCROLL SUPPORT ================= */
-onValue(ref(db, "inventory"), snapshot => {
-    const data = snapshot.val() || {};
-    inventoryData = data; // Store globally
-    
+/* ================= INVENTORY SYNC FUNCTIONS ================= */
+function updateInventoryDisplay() {
     const tbody = document.getElementById("inventoryBody");
-    const select = document.getElementById("reqItemSelect");
-    const manualItemSelect = document.getElementById("manualReqItem");
-    const lowStockList = document.getElementById("lowStockList");
     const emptyMessage = document.getElementById("emptyStockMessage");
-    const stockSummary = document.getElementById("stockSummary");
+    
+    if (!tbody) return;
     
     tbody.innerHTML = "";
-    lowStockList.innerHTML = "";
+    
+    if (Object.keys(inventoryData).length === 0) {
+        if (emptyMessage) emptyMessage.style.display = 'block';
+        return;
+    }
+    
+    if (emptyMessage) emptyMessage.style.display = 'none';
+    
+    // Sort items by name
+    const sortedKeys = Object.keys(inventoryData).sort((a, b) => {
+        const nameA = (inventoryData[a].name || "").toLowerCase();
+        const nameB = (inventoryData[b].name || "").toLowerCase();
+        return nameA.localeCompare(nameB);
+    });
+    
+    sortedKeys.forEach(key => {
+        const item = inventoryData[key];
+        const qty = parseFloat(item.quantity) || 0;
+        const unit = item.unit || 'Pc';
+        const rawItemName = item.name || "";
+        
+        const displayName = rawItemName.replace(/\s*\(PPE\)\s*$/i, '').trim();
+        const lowerName = rawItemName.toLowerCase();
+        const isPPE = lowerName.includes('(ppe)') || 
+                      ['mask', 'gloves', 'gown', 'shield', 'ppe', 'face shield', 'apron', 'coverall', 'safety', 'protective', 'hard hat', 'helmet'].some(w => 
+                          lowerName.includes(w)
+                      ) ||
+                      (item.category && item.category === 'ppe');
+        
+        const categoryClass = isPPE ? 'ppe' : 'medkit';
+        const categoryIcon = isPPE ? '🛡️' : '💊';
+        
+        const tr = document.createElement("tr");
+        tr.className = `cat-${categoryClass}`;
+        tr.dataset.category = categoryClass;
+        tr.dataset.quantity = qty;
+        if (!isPPE && item.expiryDate) {
+            tr.dataset.expiry = item.expiryDate;
+        }
+        
+        tr.innerHTML = `
+            <td style="position: sticky; left: 0; background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); z-index: 1;">
+                <div class="item-with-unit" style="display: flex; align-items: center; gap: 6px;">
+                    <span class="category-badge ${categoryClass}">${categoryIcon} ${isPPE ? 'PPE' : 'Medkit'}</span>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem;">${displayName}</div>
+                    </div>
+                    <span class="unit-badge">${unit}</span>
+                </div>
+            </td>
+            <td style="text-align:center;">
+                <div class="stock-level" style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span class="stock-qty" style="font-weight: 600; font-size: 0.95rem;">${qty.toLocaleString()}</span>
+                    </div>
+                </div>
+            </td>
+            <td class="expiry-cell"></td>
+            <td class="admin-only">
+                <div class="table-actions">
+                    <button class="btn-table btn-edit-table btn-edit" data-id="${key}" title="Edit Item" aria-label="Edit ${displayName}">
+                        <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                        </svg>
+                    </button>
+                    <button class="btn-table btn-delete-table btn-delete" data-id="${key}" title="Delete Item" aria-label="Delete ${displayName}">
+                        <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                        </svg>
+                    </button>
+                </div>
+            </td>
+        `;
+        
+        tbody.appendChild(tr);
+    });
+    
+    applyStockFilter();
+    updateInventoryExpiryDisplay();
+}
+
+function updateRequestItemOptions() {
+    const select = document.getElementById("reqItemSelect");
+    const manualItemSelect = document.getElementById("manualReqItem");
+    
+    if (!select) return;
+    
     select.innerHTML = '<option value="">Select Item...</option>';
     if (manualItemSelect) manualItemSelect.innerHTML = '<option value="">Select Item...</option>';
-    lowStockItems = [];
-    expiringItems = [];
     
-    // Check if there's any data
-    const itemKeys = Object.keys(data);
-    
-    if (itemKeys.length === 0) {
-        emptyMessage.style.display = 'block';
-    } else {
-        emptyMessage.style.display = 'none';
+    Object.keys(inventoryData).forEach(key => {
+        const item = inventoryData[key];
+        const qty = parseFloat(item.quantity) || 0;
+        const unit = item.unit || 'Pc';
+        const rawItemName = item.name || "";
         
-        // Sort items by name for better organization
-        const sortedKeys = itemKeys.sort((a, b) => {
-            const nameA = (data[a].name || "").toLowerCase();
-            const nameB = (data[b].name || "").toLowerCase();
-            return nameA.localeCompare(nameB);
-        });
+        const displayName = rawItemName.replace(/\s*\(PPE\)\s*$/i, '').trim();
+        const lowerName = rawItemName.toLowerCase();
+        const isPPE = lowerName.includes('(ppe)') || 
+                      ['mask', 'gloves', 'gown', 'shield', 'ppe', 'face shield', 'apron', 'coverall'].some(w => 
+                          lowerName.includes(w)
+                      );
         
-        sortedKeys.forEach(key => {
-            const item = data[key];
-            const qty = parseFloat(item.quantity) || 0;
-            const unit = item.unit || 'Pc';
-            const isLow = qty <= 5;
-            const isCritical = qty <= 2;
-            const rawItemName = item.name || "";
-            
-            const displayName = rawItemName.replace(/\s*\(PPE\)\s*$/i, '').trim();
-            const lowerName = rawItemName.toLowerCase();
-            const isPPE = lowerName.includes('(ppe)') || 
-                          ['mask', 'gloves', 'gown', 'shield', 'ppe', 'face shield', 'apron', 'coverall', 'safety', 'protective', 'hard hat', 'helmet'].some(w => 
-                              lowerName.includes(w)
-                          ) ||
-                          (item.category && item.category === 'ppe');
-            
-            if (isLow) {
-                lowStockItems.push({ 
-                    name: rawItemName, 
-                    quantity: qty, 
-                    unit: unit,
-                    critical: isCritical 
-                });
-                const li = document.createElement("li");
-                li.style.cssText = `
-                    padding: 8px 0;
-                    border-bottom: 1px solid rgba(0,0,0,0.1);
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                `;
-                li.innerHTML = `
-                    <span><strong>${displayName}</strong> <span class="unit-badge">${unit}</span></span>
-                    <span style="color: ${isCritical ? '#ef4444' : '#f59e0b'}; font-weight: bold;">
-                        ${qty} ${unit}${isCritical ? ' ⚠️' : ''}
-                    </span>
-                `;
-                lowStockList.appendChild(li);
-            }
-            
-            if (!isPPE && item.expiryDate) {
-                const expiryDate = new Date(item.expiryDate);
-                const today = new Date();
-                const diffDays = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
-                
-                if (diffDays <= 60) {
-                    expiringItems.push({
-                        id: key,
-                        name: rawItemName,
-                        quantity: qty,
-                        unit: unit,
-                        expiryDate: item.expiryDate,
-                        daysLeft: diffDays,
-                        isExpired: diffDays < 0
-                    });
-                }
-            }
-            
-            const categoryClass = isPPE ? 'ppe' : 'medkit';
-            const categoryIcon = isPPE ? '🛡️' : '💊';
-            
-            const tr = document.createElement("tr");
-            tr.className = `cat-${categoryClass}`;
-            tr.dataset.category = categoryClass;
-            tr.dataset.quantity = qty;
-            if (!isPPE && item.expiryDate) {
-                tr.dataset.expiry = item.expiryDate;
-            }
-            
-            // UPDATED: Removed ID display and simplified quantity display
-            tr.innerHTML = `
-                <td style="position: sticky; left: 0; background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); z-index: 1;">
-                    <div class="item-with-unit" style="display: flex; align-items: center; gap: 6px;">
-                        <span class="category-badge ${categoryClass}">${categoryIcon} ${isPPE ? 'PPE' : 'Medkit'}</span>
-                        <div style="flex: 1; min-width: 0;">
-                            <div style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem;">${displayName}</div>
-                        </div>
-                        <span class="unit-badge">${unit}</span>
-                    </div>
-                </td>
-                <td style="text-align:center;">
-                    <div class="stock-level" style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <span class="stock-qty" style="font-weight: 600; font-size: 0.95rem;">${qty.toLocaleString()}</span>
-                        </div>
-                    </div>
-                </td>
-                <td class="expiry-cell"></td>
-                <td class="admin-only">
-                    <div class="table-actions">
-                        <button class="btn-table btn-edit-table btn-edit" data-id="${key}" title="Edit Item" aria-label="Edit ${displayName}">
-                            <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                            </svg>
-                        </button>
-                        <button class="btn-table btn-delete-table btn-delete" data-id="${key}" title="Delete Item" aria-label="Delete ${displayName}">
-                            <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                            </svg>
-                        </button>
-                    </div>
-                </td>
-            `;
-            
-            tbody.appendChild(tr);
-            
+        if (qty > 0) {
             let optionText = `${displayName} (${qty} ${unit})`;
             if (!isPPE && item.expiryDate) {
                 const expiryDate = new Date(item.expiryDate);
@@ -701,7 +673,7 @@ onValue(ref(db, "inventory"), snapshot => {
             const option = document.createElement("option");
             option.value = key;
             option.textContent = optionText;
-            option.className = `cat-${categoryClass}`;
+            option.className = isPPE ? 'cat-ppe' : 'cat-medkit';
             option.dataset.expiry = item.expiryDate || '';
             option.dataset.unit = unit;
             select.appendChild(option);
@@ -714,39 +686,78 @@ onValue(ref(db, "inventory"), snapshot => {
                 manualOption.dataset.unit = unit;
                 manualItemSelect.appendChild(manualOption);
             }
-        });
-    }
+        }
+    });
+}
+
+function updateLowStockItems() {
+    const lowStockList = document.getElementById("lowStockList");
     
-    applyStockFilter();
-    updateInventoryExpiryDisplay();
-    checkExpiringItems(data);
-    updateExpiryAlertBadge();
+    if (!lowStockList) return;
     
-    // Update low stock alert
-    const bell = document.getElementById("lowStockAlert");
-    if(bell) {
-        bell.style.display = (auth.currentUser && lowStockItems.length > 0) ? "flex" : "none";
+    lowStockList.innerHTML = "";
+    lowStockItems = [];
+    
+    Object.keys(inventoryData).forEach(key => {
+        const item = inventoryData[key];
+        const qty = parseFloat(item.quantity) || 0;
+        const unit = item.unit || 'Pc';
+        const rawItemName = item.name || "";
+        const displayName = rawItemName.replace(/\s*\(PPE\)\s*$/i, '').trim();
+        const isLow = qty <= 5;
+        const isCritical = qty <= 2;
         
+        if (isLow) {
+            lowStockItems.push({ 
+                name: rawItemName, 
+                quantity: qty, 
+                unit: unit,
+                critical: isCritical 
+            });
+            
+            const li = document.createElement("li");
+            li.style.cssText = `
+                padding: 8px 0;
+                border-bottom: 1px solid rgba(0,0,0,0.1);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            `;
+            li.innerHTML = `
+                <span><strong>${displayName}</strong> <span class="unit-badge">${unit}</span></span>
+                <span style="color: ${isCritical ? '#ef4444' : '#f59e0b'}; font-weight: bold;">
+                    ${qty} ${unit}${isCritical ? ' ⚠️' : ''}
+                </span>
+            `;
+            lowStockList.appendChild(li);
+        }
+    });
+    
+    // Update low stock alert badge
+    const bell = document.getElementById("lowStockAlert");
+    if(bell && auth.currentUser) {
         const criticalCount = lowStockItems.filter(item => item.critical).length;
+        bell.style.display = criticalCount > 0 ? "flex" : "none";
+        
         if (criticalCount > 0) {
             let badge = bell.querySelector('.notification-badge');
             if (!badge) {
                 badge = document.createElement('span');
                 badge.className = 'notification-badge';
                 badge.style.cssText = `
-                position: absolute;
-                top: -5px;
-                right: -5px;
-                background: #ef4444;
-                color: white;
-                border-radius: 50%;
-                width: 18px;
-                height: 18px;
-                font-size: 10px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-weight: bold;
+                    position: absolute;
+                    top: -5px;
+                    right: -5px;
+                    background: #ef4444;
+                    color: white;
+                    border-radius: 50%;
+                    width: 18px;
+                    height: 18px;
+                    font-size: 10px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: bold;
                 `;
                 bell.style.position = 'relative';
                 bell.appendChild(badge);
@@ -757,6 +768,18 @@ onValue(ref(db, "inventory"), snapshot => {
             if (badge) badge.remove();
         }
     }
+}
+
+/* ================= ENHANCED INVENTORY SYNC ================= */
+onValue(ref(db, "inventory"), snapshot => {
+    const data = snapshot.val() || {};
+    inventoryData = data; // Store globally
+    
+    updateInventoryDisplay();
+    updateRequestItemOptions();
+    checkExpiringItems(data);
+    updateLowStockItems();
+    applyStockFilter();
 });
 
 /* ================= ADMIN STOCK FILTER ================= */
@@ -2594,6 +2617,8 @@ async function processImport() {
     
     let successCount = 0;
     let errorCount = 0;
+    let updatedCount = 0;
+    let addedCount = 0;
     
     for (let i = 0; i < importItems.length; i++) {
         const item = importItems[i];
@@ -2605,41 +2630,34 @@ async function processImport() {
         importStatus.textContent = `Processing item ${i + 1} of ${importItems.length}: ${item.name}`;
         
         try {
-            // Check if item already exists by name (case insensitive)
+            // Check if item already exists by exact name match (case insensitive)
             const itemsRef = ref(db, "inventory");
             const snapshot = await get(itemsRef);
             const existingItems = snapshot.val() || {};
             
             let existingItemKey = null;
+            let exactMatch = false;
+            
             Object.keys(existingItems).forEach(key => {
                 const existingItem = existingItems[key];
+                // Exact match check (case insensitive)
                 if (existingItem.name.toLowerCase() === item.name.toLowerCase()) {
                     existingItemKey = key;
+                    exactMatch = true;
                 }
             });
             
-            if (existingItemKey) {
-                // Update existing item - add to quantity
+            if (existingItemKey && exactMatch) {
+                // UPDATED: Only add quantity, don't change expiry date or other properties
                 const existingItem = existingItems[existingItemKey];
                 const newQuantity = (existingItem.quantity || 0) + item.quantity;
                 
                 await update(ref(db, `inventory/${existingItemKey}`), {
-                    quantity: newQuantity,
-                    ...(item.expiryDate && existingItem.category === 'medkit' && { expiryDate: item.expiryDate })
+                    quantity: newQuantity
+                    // Only update quantity, leave all other fields unchanged
                 });
                 
-                // Log the update
-                await push(ref(db, "admin_logs"), {
-                    date: new Date().toISOString(),
-                    admin: auth.currentUser?.email || "Unknown",
-                    action: "Bulk Update",
-                    itemName: item.name,
-                    qty: item.quantity,
-                    unit: item.unit,
-                    detail: `Bulk import: Added ${item.quantity} ${item.unit} to existing item`,
-                    timestamp: Date.now()
-                });
-                
+                updatedCount++;
                 successCount++;
             } else {
                 // Add new item
@@ -2663,19 +2681,7 @@ async function processImport() {
                 
                 await update(ref(db, `inventory/${newKey}`), itemData);
                 
-                // Log the addition
-                await push(ref(db, "admin_logs"), {
-                    date: new Date().toISOString(),
-                    admin: auth.currentUser?.email || "Unknown",
-                    action: "Bulk Add",
-                    itemName: finalName,
-                    qty: item.quantity,
-                    unit: item.unit,
-                    expiryDate: item.expiryDate || null,
-                    detail: "Added via Excel import",
-                    timestamp: Date.now()
-                });
-                
+                addedCount++;
                 successCount++;
             }
             
@@ -2688,32 +2694,72 @@ async function processImport() {
         await new Promise(resolve => setTimeout(resolve, 100));
     }
     
+    // UPDATED: Create a single summary log entry instead of logging each item
+    if (successCount > 0) {
+        try {
+            await push(ref(db, "admin_logs"), {
+                date: new Date().toISOString(),
+                admin: auth.currentUser?.email || "Unknown",
+                action: "Bulk Import",
+                itemName: `${addedCount} new items added, ${updatedCount} items updated`,
+                qty: successCount,
+                unit: "items",
+                detail: `Excel import completed: ${addedCount} new items added, ${updatedCount} existing items updated, ${errorCount} errors`,
+                timestamp: Date.now(),
+                importSummary: {
+                    added: addedCount,
+                    updated: updatedCount,
+                    errors: errorCount,
+                    total: importItems.length
+                }
+            });
+        } catch (error) {
+            console.error("Error logging import summary:", error);
+        }
+    }
+    
     // Show results
     progressBar.style.background = 'linear-gradient(90deg, #22c55e, #16a34a)';
     progressBar.style.width = '100%';
     progressPercent.textContent = '100%';
     
     const results = [];
-    if (successCount > 0) results.push(`✅ ${successCount} items imported`);
+    if (addedCount > 0) results.push(`✅ ${addedCount} new items added`);
+    if (updatedCount > 0) results.push(`🔄 ${updatedCount} existing items updated`);
     if (errorCount > 0) results.push(`❌ ${errorCount} items failed`);
     
     importStatus.innerHTML = `<strong>Import Complete!</strong><br>${results.join('<br>')}`;
     
-    // Reset after delay
-    setTimeout(() => {
-        resetImportModal();
-        showToast(`Bulk import complete: ${successCount} items added/updated`, 'success');
-        
-        // Close modal after success
-        document.getElementById('excelImportModal').style.display = 'none';
-        document.body.classList.remove('modal-open');
-        
-        // Force refresh inventory display
-        const inventoryRef = ref(db, "inventory");
-        get(inventoryRef).then(() => {
-            console.log("Inventory refreshed after import");
-        });
-    }, 3000);
+    // UPDATED: Force refresh after import
+    setTimeout(async () => {
+        try {
+            // Force refresh the inventory data
+            const inventoryRef = ref(db, "inventory");
+            const snapshot = await get(inventoryRef);
+            inventoryData = snapshot.val() || {};
+            
+            // Update all UI components that depend on inventory
+            updateInventoryDisplay();
+            updateRequestItemOptions();
+            checkExpiringItems(inventoryData);
+            updateLowStockItems();
+            
+            // Show success message
+            showToast(`Excel import complete: ${addedCount} added, ${updatedCount} updated, ${errorCount} errors`, 'success');
+            
+        } catch (error) {
+            console.error("Error refreshing after import:", error);
+            showToast(`Import completed but refresh failed: ${error.message}`, 'warning');
+        } finally {
+            // Reset and close modal
+            resetImportModal();
+            document.getElementById('excelImportModal').style.display = 'none';
+            document.body.classList.remove('modal-open');
+            
+            // Reload reports to show the summary log
+            loadReports();
+        }
+    }, 1500);
 }
 
 function resetImportModal() {
