@@ -216,7 +216,6 @@ function checkExpiringItems(inventoryData) {
     expiringItems.sort((a, b) => a.daysLeft - b.daysLeft);
     
     updateExpiryAlertBadge();
-    updateExpiringCount();
 }
 
 function updateExpiryAlertBadge() {
@@ -257,14 +256,6 @@ function updateExpiryAlertBadge() {
             const badge = expiryAlert.querySelector('.expiry-badge');
             if (badge) badge.remove();
         }
-    }
-}
-
-function updateExpiringCount() {
-    const expiringCountElement = document.getElementById('expiringCount');
-    if (expiringCountElement) {
-        const expiringSoonCount = expiringItems.filter(item => item.daysLeft >= 0 && item.daysLeft <= 30).length;
-        expiringCountElement.textContent = expiringSoonCount;
     }
 }
 
@@ -573,18 +564,13 @@ onValue(ref(db, "inventory"), snapshot => {
     lowStockItems = [];
     expiringItems = [];
     
-    let totalItems = 0;
-    let lowStockCount = 0;
-    
     // Check if there's any data
     const itemKeys = Object.keys(data);
     
     if (itemKeys.length === 0) {
         emptyMessage.style.display = 'block';
-        stockSummary.style.display = 'none';
     } else {
         emptyMessage.style.display = 'none';
-        stockSummary.style.display = 'block';
         
         // Sort items by name for better organization
         const sortedKeys = itemKeys.sort((a, b) => {
@@ -600,10 +586,6 @@ onValue(ref(db, "inventory"), snapshot => {
             const isLow = qty <= 5;
             const isCritical = qty <= 2;
             const rawItemName = item.name || "";
-            
-            // Update totals
-            totalItems++;
-            if (isLow) lowStockCount++;
             
             const displayName = rawItemName.replace(/\s*\(PPE\)\s*$/i, '').trim();
             const lowerName = rawItemName.toLowerCase();
@@ -666,13 +648,13 @@ onValue(ref(db, "inventory"), snapshot => {
                 tr.dataset.expiry = item.expiryDate;
             }
             
+            // UPDATED: Removed ID display and simplified quantity display
             tr.innerHTML = `
                 <td style="position: sticky; left: 0; background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); z-index: 1;">
                     <div class="item-with-unit" style="display: flex; align-items: center; gap: 6px;">
                         <span class="category-badge ${categoryClass}">${categoryIcon} ${isPPE ? 'PPE' : 'Medkit'}</span>
                         <div style="flex: 1; min-width: 0;">
                             <div style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem;">${displayName}</div>
-                            <div style="font-size: 0.75rem; color: #64748b; margin-top: 2px;">ID: ${key.substring(0, 6)}</div>
                         </div>
                         <span class="unit-badge">${unit}</span>
                     </div>
@@ -680,13 +662,7 @@ onValue(ref(db, "inventory"), snapshot => {
                 <td style="text-align:center;">
                     <div class="stock-level" style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
                         <div style="display: flex; align-items: center; gap: 6px;">
-                            <span class="stock-indicator ${isCritical ? 'low' : isLow ? 'low' : 'ok'}"></span>
                             <span class="stock-qty" style="font-weight: 600; font-size: 0.95rem;">${qty.toLocaleString()}</span>
-                        </div>
-                        <div style="font-size: 0.75rem; color: #64748b;">
-                            ${isCritical ? '<span style="color:#ef4444;">Critical</span>' : 
-                                isLow ? '<span style="color:#f59e0b;">Low</span>' : 
-                                '<span style="color:#22c55e;">Good</span>'}
                         </div>
                     </div>
                 </td>
@@ -739,11 +715,6 @@ onValue(ref(db, "inventory"), snapshot => {
                 manualItemSelect.appendChild(manualOption);
             }
         });
-        
-        // Update summary
-        document.getElementById('totalItems').textContent = totalItems;
-        document.getElementById('lowStockCount').textContent = lowStockCount;
-        updateExpiringCount();
     }
     
     applyStockFilter();
@@ -815,13 +786,10 @@ function applyStockFilter() {
   const emptyMessage = document.getElementById('emptyStockMessage');
   
   let visibleCount = 0;
-  let lowStockVisible = 0;
   
   rows.forEach(tr => {
     const isPPERow = tr.classList.contains('cat-ppe');
     const isMedkitRow = tr.classList.contains('cat-medkit');
-    const qty = parseFloat(tr.dataset.quantity) || 0;
-    const isLow = qty <= 5;
     
     let shouldShow = false;
     
@@ -840,44 +808,19 @@ function applyStockFilter() {
     if (shouldShow) {
       tr.style.display = 'table-row';
       visibleCount++;
-      if (isLow) lowStockVisible++;
     } else {
       tr.style.display = 'none';
     }
   });
   
-  // Update summary
-  if (stockSummary && visibleCount > 0) {
-    document.getElementById('totalItems').textContent = visibleCount;
-    document.getElementById('lowStockCount').textContent = lowStockVisible;
+  // Hide empty message when filtering
+  if (emptyMessage) {
+    emptyMessage.style.display = 'none';
   }
   
-  // Show/hide empty message
-  if (emptyMessage) {
-    if (visibleCount === 0 && Object.keys(inventoryData).length > 0) {
-      emptyMessage.style.display = 'block';
-      emptyMessage.innerHTML = `
-        <svg width="48" height="48" fill="currentColor" viewBox="0 0 24 24" style="opacity: 0.5;">
-          <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-        </svg>
-        <h4 style="margin: 16px 0 8px 0;">No items match the current filter</h4>
-        <p>Try changing the filter or clear filters to see all items</p>
-        <button id="clearFilterBtn" class="btn-primary" style="margin-top: 16px;">
-          Clear Filter
-        </button>
-      `;
-      
-      // Add event listener to clear filter button
-      setTimeout(() => {
-        document.getElementById('clearFilterBtn')?.addEventListener('click', () => {
-          setStockFilter('all');
-        });
-      }, 100);
-    } else if (visibleCount === 0) {
-      emptyMessage.style.display = 'block';
-    } else {
-      emptyMessage.style.display = 'none';
-    }
+  // Hide stock summary completely
+  if (stockSummary) {
+    stockSummary.style.display = 'none';
   }
   
   if (!auth.currentUser) {
@@ -2222,93 +2165,42 @@ document.getElementById("saveManualRequestBtn").onclick = async () => {
 /* ================= EXCEL IMPORT FUNCTIONALITY ================= */
 
 // File input change handler
-document.getElementById('excelFileInput').addEventListener('change', handleFileSelect);
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) {
+        console.log("No file selected");
+        return;
+    }
+    
+    console.log("File selected:", file.name, file.size);
+    
+    const fileName = document.getElementById('fileName');
+    if (fileName) {
+        fileName.textContent = `Selected: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+        fileName.style.color = '#3b82f6';
+        fileName.style.fontWeight = '500';
+    }
+    
+    // Validate file type
+    const validExtensions = ['.xlsx', '.xls', '.csv'];
+    const fileExt = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+    
+    if (!validExtensions.includes(fileExt)) {
+        showToast(`Please select an Excel file (${validExtensions.join(', ')})`, 'error');
+        if (fileName) fileName.textContent = 'Invalid file type. Please select Excel file.';
+        return;
+    }
+    
+    // Clear previous data
+    excelData = [];
+    importItems = [];
+    
+    // Process the file
+    handleExcelFile(file);
+}
 
 // Process import button
 document.getElementById('processImportBtn').onclick = processImport;
-
-// Drag and drop functionality
-const modalContent = document.querySelector('#excelImportModal .modal-content');
-if (modalContent) {
-    modalContent.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        modalContent.style.borderColor = '#3b82f6';
-        modalContent.style.background = 'rgba(59, 130, 246, 0.05)';
-    });
-
-    modalContent.addEventListener('dragleave', (e) => {
-        modalContent.style.borderColor = '';
-        modalContent.style.background = '';
-    });
-
-    modalContent.addEventListener('drop', (e) => {
-        e.preventDefault();
-        modalContent.style.borderColor = '';
-        modalContent.style.background = '';
-        
-        const files = e.dataTransfer.files;
-        if (files.length > 0 && (files[0].name.endsWith('.xlsx') || files[0].name.endsWith('.xls') || files[0].name.endsWith('.csv'))) {
-            handleExcelFile(files[0]);
-        }
-    });
-}
-
-// Download template function
-function downloadTemplate() {
-    const templateData = [
-        ['Item Name', 'Quantity', 'Unit', 'Expiry Date', 'Category'],
-        ['Paracetamol 500mg', '100', 'Tablet', '2024-12-31', 'Medkit'],
-        ['Surgical Masks', '500', 'Pc', '', 'PPE'],
-        ['Hand Sanitizer', '50', 'ml', '2024-10-15', 'Medkit'],
-        ['Nitrile Gloves', '200', 'Pair', '', 'PPE'],
-        ['Bandages', '150', 'Pc', '2025-06-30', 'Medkit']
-    ];
-    
-    const ws = XLSX.utils.aoa_to_sheet(templateData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Template');
-    
-    // Auto-size columns
-    const wscols = [
-        {wch: 25}, // Item Name
-        {wch: 10}, // Quantity
-        {wch: 10}, // Unit
-        {wch: 12}, // Expiry Date
-        {wch: 10}  // Category
-    ];
-    ws['!cols'] = wscols;
-    
-    XLSX.writeFile(wb, 'Inventory_Template.xlsx');
-}
-
-// Add template download button to modal
-document.addEventListener('DOMContentLoaded', () => {
-    const modalContent = document.querySelector('#excelImportModal .modal-content');
-    const formatDiv = modalContent.querySelector('div[style*="Excel Format Requirements"]');
-    
-    if (formatDiv) {
-        const templateBtn = document.createElement('button');
-        templateBtn.className = 'btn-text';
-        templateBtn.innerHTML = `
-            <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" style="margin-right: 6px;">
-                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
-            </svg>
-            Download Template
-        `;
-        templateBtn.onclick = downloadTemplate;
-        templateBtn.style.marginTop = '10px';
-        
-        formatDiv.appendChild(templateBtn);
-    }
-});
-
-function handleFileSelect(event) {
-    const file = event.target.files[0];
-    if (file) {
-        document.getElementById('fileName').textContent = `Selected: ${file.name}`;
-        handleExcelFile(file);
-    }
-}
 
 async function handleExcelFile(file) {
     try {
@@ -2317,17 +2209,61 @@ async function handleExcelFile(file) {
         const data = await file.arrayBuffer();
         const workbook = XLSX.read(data, { type: 'array' });
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        
+        // Get the sheet data
         const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
         
-        // Remove empty rows and filter out header row
-        excelData = jsonData.filter(row => 
-            row && row.length > 0 && 
-            !(row[0] && row[0].toString().toLowerCase().includes('item'))
+        console.log("Excel data loaded:", jsonData.length, "rows");
+        
+        // Check if data is empty
+        if (jsonData.length === 0 || (jsonData.length === 1 && jsonData[0].length === 0)) {
+            showToast('Excel file is empty or has no data', 'error');
+            return;
+        }
+        
+        // Determine if first row is header
+        const firstRow = jsonData[0] || [];
+        const firstCell = firstRow[0]?.toString().toLowerCase() || '';
+        
+        // Check if first row looks like a header
+        const isHeader = ['item', 'name', 'quantity', 'qty', 'unit', 'expiry', 'category'].some(
+            header => firstCell.includes(header)
         );
+        
+        // Start from appropriate row
+        const startRow = isHeader ? 1 : 0;
+        excelData = [];
+        
+        // Process rows
+        for (let i = startRow; i < jsonData.length; i++) {
+            const row = jsonData[i];
+            if (!row || row.length === 0) continue;
+            
+            // Convert empty cells to undefined
+            const processedRow = [];
+            for (let j = 0; j < 5; j++) { // We expect up to 5 columns
+                processedRow[j] = (j < row.length && row[j] !== null && row[j] !== '') 
+                    ? row[j] 
+                    : undefined;
+            }
+            
+            // Only add if it has at least item name
+            if (processedRow[0]) {
+                excelData.push(processedRow);
+            }
+        }
+        
+        console.log("Processed data:", excelData);
+        
+        if (excelData.length === 0) {
+            showToast('No valid data found in Excel file. Please check the format.', 'error');
+            return;
+        }
         
         displayPreview();
         
     } catch (error) {
+        console.error("Excel parsing error:", error);
         showToast('Error reading Excel file: ' + error.message, 'error');
     } finally {
         showLoading(false);
@@ -2428,13 +2364,22 @@ function displayPreview() {
     const previewBody = document.getElementById('previewTableBody');
     const processBtn = document.getElementById('processImportBtn');
     
-    previewBody.innerHTML = '';
-    
-    if (excelData.length === 0) {
-        previewTable.style.display = 'none';
-        processBtn.disabled = true;
+    if (!previewTable || !previewBody || !processBtn) {
+        console.error("Preview elements not found");
+        showToast('Preview elements not found', 'error');
         return;
     }
+    
+    previewBody.innerHTML = '';
+    
+    if (!excelData || excelData.length === 0) {
+        previewTable.style.display = 'none';
+        processBtn.disabled = true;
+        showToast('No data to preview', 'warning');
+        return;
+    }
+    
+    console.log("Displaying preview for", excelData.length, "rows");
     
     // Remove any existing count info
     const existingCountInfo = previewTable.nextElementSibling;
@@ -2622,8 +2567,11 @@ function displayPreview() {
 }
 
 async function processImport() {
-    if (importItems.length === 0) {
+    console.log("Starting import with", importItems?.length, "items");
+    
+    if (!importItems || importItems.length === 0) {
         showToast('No valid items to import', 'error');
+        console.error("No import items available");
         return;
     }
     
@@ -2632,6 +2580,14 @@ async function processImport() {
     const progressPercent = document.getElementById('progressPercent');
     const importStatus = document.getElementById('importStatus');
     const processBtn = document.getElementById('processImportBtn');
+    
+    if (!progressDiv || !progressBar || !processBtn) {
+        console.error("Import UI elements not found");
+        showToast('Import UI elements not found', 'error');
+        return;
+    }
+    
+    console.log("Processing", importItems.length, "items");
     
     processBtn.disabled = true;
     progressDiv.style.display = 'block';
@@ -2751,6 +2707,12 @@ async function processImport() {
         // Close modal after success
         document.getElementById('excelImportModal').style.display = 'none';
         document.body.classList.remove('modal-open');
+        
+        // Force refresh inventory display
+        const inventoryRef = ref(db, "inventory");
+        get(inventoryRef).then(() => {
+            console.log("Inventory refreshed after import");
+        });
     }, 3000);
 }
 
@@ -2765,14 +2727,84 @@ function resetImportModal() {
     document.getElementById('processImportBtn').disabled = true;
     
     const progressDiv = document.getElementById('importProgress');
-    progressDiv.style.display = 'none';
-    document.getElementById('progressBar').style.width = '0%';
-    document.getElementById('progressPercent').textContent = '0%';
-    document.getElementById('importStatus').textContent = '';
+    if (progressDiv) {
+        progressDiv.style.display = 'none';
+        document.getElementById('progressBar').style.width = '0%';
+        document.getElementById('progressPercent').textContent = '0%';
+        document.getElementById('importStatus').textContent = '';
+    }
     
-    // Remove any count info div
-    const countInfo = document.querySelector('#excelImportModal .modal-content div[style*="padding: 10px; background: #f8fafc"]');
-    if (countInfo) countInfo.remove();
+    // Remove any count info divs
+    const countInfos = document.querySelectorAll('#excelImportModal .modal-content > div');
+    countInfos.forEach(div => {
+        if (div.style.cssText.includes('padding: 15px') || 
+            div.style.cssText.includes('background: #f8fafc') ||
+            div.id !== 'importProgress') {
+            div.remove();
+        }
+    });
+    
+    // Clear file input completely
+    const fileInput = document.getElementById('excelFileInput');
+    if (fileInput) {
+        fileInput.value = '';
+        // Trigger change event to ensure clean state
+        fileInput.dispatchEvent(new Event('change'));
+    }
+}
+
+// Drag and drop functionality
+const modalContent = document.querySelector('#excelImportModal .modal-content');
+if (modalContent) {
+    modalContent.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        modalContent.style.borderColor = '#3b82f6';
+        modalContent.style.background = 'rgba(59, 130, 246, 0.05)';
+    });
+
+    modalContent.addEventListener('dragleave', (e) => {
+        modalContent.style.borderColor = '';
+        modalContent.style.background = '';
+    });
+
+    modalContent.addEventListener('drop', (e) => {
+        e.preventDefault();
+        modalContent.style.borderColor = '';
+        modalContent.style.background = '';
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0 && (files[0].name.endsWith('.xlsx') || files[0].name.endsWith('.xls') || files[0].name.endsWith('.csv'))) {
+            handleExcelFile(files[0]);
+        }
+    });
+}
+
+// Download template function
+function downloadTemplate() {
+    const templateData = [
+        ['Item Name', 'Quantity', 'Unit', 'Expiry Date', 'Category'],
+        ['Paracetamol 500mg', '100', 'Tablet', '2024-12-31', 'Medkit'],
+        ['Surgical Masks', '500', 'Pc', '', 'PPE'],
+        ['Hand Sanitizer', '50', 'ml', '2024-10-15', 'Medkit'],
+        ['Nitrile Gloves', '200', 'Pair', '', 'PPE'],
+        ['Bandages', '150', 'Pc', '2025-06-30', 'Medkit']
+    ];
+    
+    const ws = XLSX.utils.aoa_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Template');
+    
+    // Auto-size columns
+    const wscols = [
+        {wch: 25}, // Item Name
+        {wch: 10}, // Quantity
+        {wch: 10}, // Unit
+        {wch: 12}, // Expiry Date
+        {wch: 10}  // Category
+    ];
+    ws['!cols'] = wscols;
+    
+    XLSX.writeFile(wb, 'Inventory_Template.xlsx');
 }
 
 /* ================= STOCK EXPORT FUNCTION ================= */
@@ -2819,12 +2851,6 @@ document.getElementById('downloadStockBtn')?.addEventListener('click', () => {
     URL.revokeObjectURL(url);
     
     showToast("Stock exported to CSV successfully!", "success");
-});
-
-/* ================= CLEAR FILTERS FUNCTION ================= */
-document.getElementById('clearStockFilter')?.addEventListener('click', () => {
-    setStockFilter('all');
-    showToast("Filters cleared", "success");
 });
 
 /* ================= ADD FIRST ITEM BUTTON ================= */
@@ -3005,6 +3031,41 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById("itemUnit").dispatchEvent(new Event('change'));
   }
   
+  // Excel import setup
+  const excelFileInput = document.getElementById('excelFileInput');
+  const chooseFileLabel = document.querySelector('label[for="excelFileInput"]');
+  
+  if (excelFileInput && chooseFileLabel) {
+      // Make sure the label triggers the file input
+      chooseFileLabel.onclick = (e) => {
+          e.preventDefault();
+          excelFileInput.click();
+      };
+      
+      excelFileInput.onchange = (e) => {
+          handleFileSelect(e);
+      };
+  }
+  
+  // Add template download button to modal
+  const importModalContent = document.querySelector('#excelImportModal .modal-content');
+  const formatDiv = importModalContent?.querySelector('div[style*="Excel Format Requirements"]');
+  
+  if (formatDiv) {
+      const templateBtn = document.createElement('button');
+      templateBtn.className = 'btn-text';
+      templateBtn.innerHTML = `
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" style="margin-right: 6px;">
+              <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+          </svg>
+          Download Template
+      `;
+      templateBtn.onclick = downloadTemplate;
+      templateBtn.style.marginTop = '10px';
+      
+      formatDiv.appendChild(templateBtn);
+  }
+  
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
       e.preventDefault();
@@ -3032,6 +3093,28 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('offline', () => {
     showToast("You are offline. Some features may be limited.", "warning");
   });
+  
+  // Excel import modal close handler
+  const excelModal = document.getElementById('excelImportModal');
+  const cancelImportBtn = document.getElementById('cancelImportBtn');
+  
+  if (cancelImportBtn) {
+    cancelImportBtn.onclick = () => {
+        resetImportModal();
+        excelModal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    };
+  }
+  
+  if (excelModal) {
+    excelModal.onclick = (e) => {
+        if (e.target === excelModal) {
+            resetImportModal();
+            excelModal.style.display = 'none';
+            document.body.classList.remove('modal-open');
+        }
+    };
+  }
   
   console.log("Medical Inventory System with Excel Import initialized successfully");
 });
