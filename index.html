@@ -132,81 +132,82 @@
     </div>
 </div>
 
-<div id="excelImportModal" class="modal">
-    <div class="modal-content" style="max-width: 700px;">
-        <h3>📥 Import Inventory from Excel</h3>
+<div id="bulkImportModal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+        <h3>📥 Bulk Add Items</h3>
         
-        <div style="margin: 20px 0; padding: 15px; background: rgba(59, 130, 246, 0.1); border-radius: 10px;">
-            <h4 style="margin-top: 0; color: #3b82f6;">📋 Excel Format Requirements:</h4>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
-                <div style="padding: 10px; background: white; border-radius: 8px;">
-                    <strong>Column A:</strong> Item Name
+        <div style="margin: 15px 0; padding: 15px; background: rgba(59, 130, 246, 0.1); border-radius: 10px;">
+            <h4 style="margin-top: 0; color: #3b82f6;">📋 Format Instructions:</h4>
+            <p style="margin: 8px 0; font-size: 0.9rem;">Enter each item on a new line with the following format:</p>
+            <div style="background: white; padding: 10px; border-radius: 8px; margin: 10px 0; font-family: monospace; font-size: 0.85rem;">
+                <strong>Item Name, Quantity, Unit, Category, Expiry Date</strong><br>
+                <span style="color: #64748b;">Example:</span> Paracetamol 500mg, 100, Tablet, Medkit, 2024-12-31
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; font-size: 0.8rem;">
+                <div>
+                    <strong>Available Units:</strong><br>
+                    Pc, Tablet, ml, Box,<br>
+                    Bottle, Pack, Pair, Set,<br>
+                    Vial, Tube, Can, Carton
                 </div>
-                <div style="padding: 10px; background: white; border-radius: 8px;">
-                    <strong>Column B:</strong> Quantity
-                </div>
-                <div style="padding: 10px; background: white; border-radius: 8px;">
-                    <strong>Column C:</strong> Unit
-                </div>
-                <div style="padding: 10px; background: white; border-radius: 8px;">
-                    <strong>Column D:</strong> Expiry Date
-                </div>
-                <div style="padding: 10px; background: white; border-radius: 8px; grid-column: span 2;">
-                    <strong>Column E:</strong> Category (Medkit/PPE)
+                <div>
+                    <strong>Categories:</strong><br>
+                    Medkit or PPE<br><br>
+                    <strong>Expiry Date:</strong><br>
+                    Optional for Medkit<br>
+                    YYYY-MM-DD format
                 </div>
             </div>
-            <p style="margin: 10px 0 0 0; font-size: 0.9rem; color: #64748b;">
-                ⓘ First row should be headers. Expiry Date format: YYYY-MM-DD (optional for Medkit)
-            </p>
         </div>
         
-        <div style="text-align: center; margin: 20px 0;">
-            <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" 
-                   style="display: none;">
-            <label for="excelFileInput" class="btn-primary" 
-                   style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; padding: 12px 24px;">
-                <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
-                </svg>
-                Choose Excel File
-            </label>
-            <div id="fileName" style="margin-top: 10px; color: #64748b; font-size: 0.9rem;"></div>
+        <textarea id="bulkItemsTextarea" placeholder="Paste or type items here...
+Example:
+Paracetamol 500mg, 100, Tablet, Medkit, 2024-12-31
+Surgical Masks, 500, Pc, PPE,
+Hand Sanitizer, 50, ml, Medkit, 2024-10-15"
+                  style="width: 100%; height: 200px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-family: monospace; font-size: 0.9rem; resize: vertical;"></textarea>
+        
+        <div id="bulkPreview" style="margin-top: 15px; display: none; max-height: 200px; overflow-y: auto;">
+            <h4 style="margin-bottom: 10px;">Preview:</h4>
+            <div id="bulkPreviewContent" style="background: #f8fafc; padding: 10px; border-radius: 8px; font-size: 0.85rem;"></div>
         </div>
         
-        <div id="previewTable" style="max-height: 400px; overflow-y: auto; margin: 20px 0; display: none; border: 1px solid #e2e8f0; border-radius: 8px;">
-            <table style="width: 100%; border-collapse: collapse; min-width: 600px;">
-                <thead>
-                    <tr style="background: #f8fafc; position: sticky; top: 0;">
-                        <th style="padding: 12px; border: 1px solid #e2e8f0; text-align: left;">Item Name</th>
-                        <th style="padding: 12px; border: 1px solid #e2e8f0; text-align: center;">Quantity</th>
-                        <th style="padding: 12px; border: 1px solid #e2e8f0; text-align: center;">Unit</th>
-                        <th style="padding: 12px; border: 1px solid #e2e8f0; text-align: center;">Expiry</th>
-                        <th style="padding: 12px; border: 1px solid #e2e8f0; text-align: center;">Category</th>
-                    </tr>
-                </thead>
-                <tbody id="previewTableBody"></tbody>
-            </table>
+        <div id="bulkError" style="color: #ef4444; margin-top: 10px; font-size: 0.85rem; display: none;"></div>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+            <div>
+                <button id="validateBulkBtn" class="btn-primary" style="padding: 8px 16px; font-size: 14px;">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" style="margin-right: 6px;">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                    </svg>
+                    Validate Items
+                </button>
+                <button id="clearBulkBtn" class="btn-text" style="padding: 8px 16px; font-size: 14px; margin-left: 10px;">
+                    Clear All
+                </button>
+            </div>
+            <div>
+                <button id="importBulkBtn" class="btn-success" style="padding: 8px 16px; font-size: 14px;" disabled>
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" style="margin-right: 6px;">
+                        <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                    </svg>
+                    Import Items
+                </button>
+                <button id="closeBulkModal" class="btn-text" style="padding: 8px 16px; font-size: 14px; margin-left: 10px;">
+                    Cancel
+                </button>
+            </div>
         </div>
         
-        <div class="modal-btns" style="margin-top: 20px;">
-            <button id="processImportBtn" class="btn-success" disabled>
-                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" style="margin-right: 8px;">
-                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                </svg>
-                Import Items
-            </button>
-            <button id="cancelImportBtn" class="btn-text">Cancel</button>
-        </div>
-        
-        <div id="importProgress" style="margin-top: 20px; display: none;">
+        <div id="bulkProgress" style="margin-top: 20px; display: none;">
             <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
                 <span>Importing...</span>
-                <span id="progressPercent">0%</span>
+                <span id="bulkProgressPercent">0%</span>
             </div>
             <div style="width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden;">
-                <div id="progressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #22c55e, #16a34a); transition: width 0.3s;"></div>
+                <div id="bulkProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #22c55e, #16a34a); transition: width 0.3s;"></div>
             </div>
-            <div id="importStatus" style="margin-top: 10px; font-size: 0.9rem; color: #64748b;"></div>
+            <div id="bulkStatus" style="margin-top: 10px; font-size: 0.9rem; color: #64748b;"></div>
         </div>
     </div>
 </div>
@@ -266,11 +267,9 @@
                 ⓘ Expiry date is only applicable for Medkit items
             </div>
             
-            <div class="admin-form-grid" style="margin-top: 20px;">
-                <button id="importExcelBtn" class="btn-success" style="grid-column: span 2;">
-                    📥 Import from Excel
-                </button>
-            </div>
+            <button id="bulkImportBtn" class="btn-success" style="grid-column: span 2;">
+    📥 Bulk Add Items
+</button>
         </section>
 
        <section class="card">
