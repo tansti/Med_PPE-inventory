@@ -3903,4 +3903,95 @@ body {
     }
 }
 
+/* ================= BULK IMPORT MODAL STYLES ================= */
+#bulkImportModal .modal-content {
+    max-width: 600px;
+    width: 100%;
+}
 
+.bulk-preview-item {
+    padding: 6px 10px;
+    margin: 4px 0;
+    border-radius: 6px;
+    background: white;
+    border-left: 4px solid #22c55e;
+    font-size: 0.85rem;
+}
+
+.bulk-preview-item.invalid {
+    border-left-color: #ef4444;
+    background: rgba(239, 68, 68, 0.05);
+}
+
+.bulk-preview-item.warning {
+    border-left-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.05);
+}
+
+.bulk-item-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+    font-size: 0.8rem;
+}
+
+.bulk-item-detail {
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.bulk-item-detail.category-medkit {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+}
+
+.bulk-item-detail.category-ppe {
+    background: rgba(139, 92, 246, 0.1);
+    color: #8b5cf6;
+}
+
+#bulkPreview {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.bulk-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.bulk-stat {
+    text-align: center;
+    padding: 10px;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.bulk-stat .count {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.bulk-stat .label {
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.bulk-stat .count.valid {
+    color: #22c55e;
+}
+
+.bulk-stat .count.invalid {
+    color: #ef4444;
+}
+
+.bulk-stat .count.total {
+    color: #3b82f6;
+}
