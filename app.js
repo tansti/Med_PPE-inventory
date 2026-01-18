@@ -22,8 +22,6 @@ let isPPEMode = false;
 let pendingItemData = null;
 let editingRequestId = null;
 let inventoryData = {};
-let excelData = [];
-let importItems = [];
 
 /* ================= ENHANCED UI FEEDBACK ================= */
 function showToast(message, type = "success") {
@@ -156,6 +154,31 @@ function sanitizeInput(text, maxLength = 500) {
     .replace(/[<>"'&]/g, '')
     .trim()
     .substring(0, maxLength);
+}
+
+/* ================= CHANGE FORMATTING HELPER ================= */
+function formatItemChanges(oldData, newData) {
+    const changes = [];
+    
+    if (oldData.name !== newData.name) {
+        changes.push(`Name: "${oldData.name}" → "${newData.name}"`);
+    }
+    
+    if (oldData.quantity !== newData.quantity) {
+        changes.push(`Quantity: ${oldData.quantity} → ${newData.quantity} ${newData.unit || oldData.unit}`);
+    }
+    
+    if (oldData.unit !== newData.unit) {
+        changes.push(`Unit: ${oldData.unit} → ${newData.unit}`);
+    }
+    
+    if (oldData.expiryDate !== newData.expiryDate) {
+        const oldExpiry = oldData.expiryDate ? formatExpiryDate(oldData.expiryDate) : 'None';
+        const newExpiry = newData.expiryDate ? formatExpiryDate(newData.expiryDate) : 'None';
+        changes.push(`Expiry: ${oldExpiry} → ${newExpiry}`);
+    }
+    
+    return changes.length > 0 ? changes.join(', ') : 'No significant changes';
 }
 
 /* ================= EXPIRY MANAGEMENT FUNCTIONS ================= */
@@ -541,8 +564,8 @@ setupModal("employeeTrigger", "employeeModal", "closeEmployeeModal", () => {
 });
 setupModal("lowStockAlert", "lowStockModal", "closeLowStockModal");
 setupModal("expiryAlert", "expiryAlertModal", "closeExpiryAlertModal");
-setupModal("importExcelBtn", "excelImportModal", "cancelImportBtn", () => {
-  resetImportModal();
+setupModal("bulkImportBtn", "bulkImportModal", "closeBulkModal", () => {
+  resetBulkImport();
 });
 
 /* ================= INVENTORY SYNC FUNCTIONS ================= */
@@ -561,11 +584,27 @@ function updateInventoryDisplay() {
     
     if (emptyMessage) emptyMessage.style.display = 'none';
     
-    // Sort items by name
+    // Sort items by name, then by expiry date
     const sortedKeys = Object.keys(inventoryData).sort((a, b) => {
-        const nameA = (inventoryData[a].name || "").toLowerCase();
-        const nameB = (inventoryData[b].name || "").toLowerCase();
-        return nameA.localeCompare(nameB);
+        const itemA = inventoryData[a];
+        const itemB = inventoryData[b];
+        const nameA = (itemA.name || "").toLowerCase();
+        const nameB = (itemB.name || "").toLowerCase();
+        
+        // First sort by name
+        if (nameA !== nameB) {
+            return nameA.localeCompare(nameB);
+        }
+        
+        // If same name, sort by expiry date (items without expiry first)
+        const expiryA = itemA.expiryDate || '';
+        const expiryB = itemB.expiryDate || '';
+        
+        if (!expiryA && !expiryB) return 0;
+        if (!expiryA) return -1;
+        if (!expiryB) return 1;
+        
+        return expiryA.localeCompare(expiryB);
     });
     
     sortedKeys.forEach(key => {
@@ -573,6 +612,7 @@ function updateInventoryDisplay() {
         const qty = parseFloat(item.quantity) || 0;
         const unit = item.unit || 'Pc';
         const rawItemName = item.name || "";
+        const expiryDate = item.expiryDate || null;
         
         const displayName = rawItemName.replace(/\s*\(PPE\)\s*$/i, '').trim();
         const lowerName = rawItemName.toLowerCase();
@@ -585,13 +625,32 @@ function updateInventoryDisplay() {
         const categoryClass = isPPE ? 'ppe' : 'medkit';
         const categoryIcon = isPPE ? '🛡️' : '💊';
         
+        // Format expiry for display
+        let expiryDisplay = '';
+        if (expiryDate && !isPPE) {
+            const status = getExpiryStatus(expiryDate);
+            const formattedDate = formatExpiryDate(expiryDate);
+            expiryDisplay = `
+                <div class="expiry-date ${status.status}">
+                    ${formattedDate}
+                    ${status.days !== null ? `<span class="expiry-status expiry-${status.status}">
+                        ${status.status === 'expired' ? 'Expired' : 
+                          status.status === 'warning' ? `${status.days}d left` : 
+                          'Valid'}
+                    </span>` : ''}
+                </div>
+            `;
+        } else if (isPPE) {
+            expiryDisplay = '<div class="expiry-date">N/A</div>';
+        } else {
+            expiryDisplay = '<div class="expiry-date">-</div>';
+        }
+        
         const tr = document.createElement("tr");
         tr.className = `cat-${categoryClass}`;
         tr.dataset.category = categoryClass;
         tr.dataset.quantity = qty;
-        if (!isPPE && item.expiryDate) {
-            tr.dataset.expiry = item.expiryDate;
-        }
+        tr.dataset.expiry = expiryDate || '';
         
         tr.innerHTML = `
             <td style="position: sticky; left: 0; background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); z-index: 1;">
@@ -599,6 +658,7 @@ function updateInventoryDisplay() {
                     <span class="category-badge ${categoryClass}">${categoryIcon} ${isPPE ? 'PPE' : 'Medkit'}</span>
                     <div style="flex: 1; min-width: 0;">
                         <div style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem;">${displayName}</div>
+                        ${expiryDate && !isPPE ? `<div style="font-size: 0.75rem; color: #64748b; margin-top: 2px;">Exp: ${formatExpiryDate(expiryDate)}</div>` : ''}
                     </div>
                     <span class="unit-badge">${unit}</span>
                 </div>
@@ -610,7 +670,9 @@ function updateInventoryDisplay() {
                     </div>
                 </div>
             </td>
-            <td class="expiry-cell"></td>
+            <td>
+                ${expiryDisplay}
+            </td>
             <td class="admin-only">
                 <div class="table-actions">
                     <button class="btn-table btn-edit-table btn-edit" data-id="${key}" title="Edit Item" aria-label="Edit ${displayName}">
@@ -631,7 +693,6 @@ function updateInventoryDisplay() {
     });
     
     applyStockFilter();
-    updateInventoryExpiryDisplay();
 }
 
 function updateRequestItemOptions() {
@@ -643,11 +704,15 @@ function updateRequestItemOptions() {
     select.innerHTML = '<option value="">Select Item...</option>';
     if (manualItemSelect) manualItemSelect.innerHTML = '<option value="">Select Item...</option>';
     
+    // Group items by name to show expiry variants
+    const groupedItems = {};
+    
     Object.keys(inventoryData).forEach(key => {
         const item = inventoryData[key];
         const qty = parseFloat(item.quantity) || 0;
         const unit = item.unit || 'Pc';
         const rawItemName = item.name || "";
+        const expiryDate = item.expiryDate || null;
         
         const displayName = rawItemName.replace(/\s*\(PPE\)\s*$/i, '').trim();
         const lowerName = rawItemName.toLowerCase();
@@ -657,37 +722,85 @@ function updateRequestItemOptions() {
                       );
         
         if (qty > 0) {
-            let optionText = `${displayName} (${qty} ${unit})`;
-            if (!isPPE && item.expiryDate) {
-                const expiryDate = new Date(item.expiryDate);
-                const status = getExpiryStatus(item.expiryDate);
-                optionText += ` - Exp: ${expiryDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-                
-                if (status.status === 'warning') {
-                    optionText += ` ⚠️`;
-                } else if (status.status === 'expired') {
-                    optionText += ` ❌`;
-                }
+            const baseName = displayName;
+            
+            if (!groupedItems[baseName]) {
+                groupedItems[baseName] = [];
             }
             
-            const option = document.createElement("option");
-            option.value = key;
-            option.textContent = optionText;
-            option.className = isPPE ? 'cat-ppe' : 'cat-medkit';
-            option.dataset.expiry = item.expiryDate || '';
-            option.dataset.unit = unit;
-            select.appendChild(option);
-            
-            if (manualItemSelect) {
-                const manualOption = document.createElement("option");
-                manualOption.value = key;
-                manualOption.textContent = `${displayName} (${qty} ${unit})`;
-                manualOption.dataset.name = rawItemName;
-                manualOption.dataset.unit = unit;
-                manualItemSelect.appendChild(manualOption);
-            }
+            groupedItems[baseName].push({
+                key: key,
+                item: item,
+                displayName: displayName,
+                qty: qty,
+                unit: unit,
+                expiryDate: expiryDate,
+                isPPE: isPPE
+            });
         }
     });
+    
+    // Create options with expiry variants
+    Object.keys(groupedItems).forEach(baseName => {
+        const variants = groupedItems[baseName];
+        
+        if (variants.length === 1) {
+            // Single variant
+            const variant = variants[0];
+            const optionText = createOptionText(variant);
+            
+            createOption(select, manualItemSelect, variant, optionText);
+        } else {
+            // Multiple variants (different expiry dates)
+            variants.forEach((variant, index) => {
+                let optionText = createOptionText(variant);
+                
+                // Add variant indicator for items with same name
+                if (index > 0) {
+                    optionText = optionText.replace(variant.displayName, `${variant.displayName} [Variant ${index + 1}]`);
+                }
+                
+                createOption(select, manualItemSelect, variant, optionText);
+            });
+        }
+    });
+}
+
+function createOptionText(variant) {
+    let optionText = `${variant.displayName} (${variant.qty} ${variant.unit})`;
+    
+    if (!variant.isPPE && variant.expiryDate) {
+        const expiryDate = new Date(variant.expiryDate);
+        const status = getExpiryStatus(variant.expiryDate);
+        optionText += ` - Exp: ${expiryDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+        
+        if (status.status === 'warning') {
+            optionText += ` ⚠️`;
+        } else if (status.status === 'expired') {
+            optionText += ` ❌`;
+        }
+    }
+    
+    return optionText;
+}
+
+function createOption(select, manualItemSelect, variant, optionText) {
+    const option = document.createElement("option");
+    option.value = variant.key;
+    option.textContent = optionText;
+    option.className = variant.isPPE ? 'cat-ppe' : 'cat-medkit';
+    option.dataset.expiry = variant.expiryDate || '';
+    option.dataset.unit = variant.unit;
+    select.appendChild(option);
+    
+    if (manualItemSelect) {
+        const manualOption = document.createElement("option");
+        manualOption.value = variant.key;
+        manualOption.textContent = `${variant.displayName} (${variant.qty} ${variant.unit})`;
+        manualOption.dataset.name = variant.item.name;
+        manualOption.dataset.unit = variant.unit;
+        manualItemSelect.appendChild(manualOption);
+    }
 }
 
 function updateLowStockItems() {
@@ -1287,6 +1400,7 @@ function applyLogFilter() {
             <span class="quantity-badge">${log.qty || 0} ${log.unit || 'Pc'}</span>
           </div>
           ${log.purpose ? `<div class="purpose-text">${log.purpose}</div>` : ''}
+          ${log.detail ? `<div class="purpose-text" style="margin-top:4px; font-size:0.8rem; color:#64748b;">${log.detail}</div>` : ''}
         </td>
         <td class="admin-only">
           ${currentLogView === "requests" && !log.action ? `
@@ -1395,7 +1509,7 @@ document.getElementById("downloadCsvBtn").onclick = () => {
     return;
   }
   
-  let csv = "Date,Time,User,User ID,Action,Item,Quantity,Unit,Expiry Date,Category,Purpose\n";
+  let csv = "Date,Time,User,User ID,Action,Item,Quantity,Unit,Expiry Date,Category,Purpose,Detail\n";
   
   filtered.forEach(log => {
     const itemName = log.itemName || '';
@@ -1406,7 +1520,7 @@ document.getElementById("downloadCsvBtn").onclick = () => {
     const formattedTime = isNaN(date.getTime()) ? '' : date.toLocaleTimeString();
     
     csv += `"${formattedDate}","${formattedTime}","${log.admin || log.requester || ''}","${log.empID || ''}",`;
-    csv += `"${log.action || 'Request'}","${itemName}",${log.qty || 0},"${log.unit || 'Pc'}","${log.expiryDate || ''}",${category},"${(log.purpose || "").replace(/"/g, '""')}"\n`;
+    csv += `"${log.action || 'Request'}","${itemName}",${log.qty || 0},"${log.unit || 'Pc'}","${log.expiryDate || ''}",${category},"${(log.purpose || "").replace(/"/g, '""')}","${(log.detail || "").replace(/"/g, '""')}"\n`;
   });
   
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -1472,25 +1586,35 @@ document.getElementById("inventoryBody").addEventListener("click", async e => {
                 return;
             }
             
-            const rawName = itemData.name || '';
-            const displayName = rawName.replace(/\s*\(PPE\)\s*$/i, '').trim();
+        const rawName = itemData.name || '';
+        const displayName = rawName.replace(/\s*\(PPE\)\s*$/i, '').trim();
+        const qty = parseFloat(itemData.quantity) || 0;
+        const unit = itemData.unit || 'Pc';
+        const expiryDate = itemData.expiryDate || null;
+        const category = itemData.category || (rawName.toLowerCase().includes('(ppe)') ? 'ppe' : 'medkit');
+        
+        if (confirm(`Are you sure you want to delete "${displayName}" (${qty} ${unit}) from inventory?`)) {
+            // First log the deletion
+            await push(ref(db, "admin_logs"), {
+                date: new Date().toISOString(),
+                admin: auth.currentUser?.email || "Unknown",
+                action: "Delete",
+                itemName: rawName,
+                qty: qty,
+                unit: unit,
+                expiryDate: expiryDate,
+                category: category,
+                detail: `Deleted item "${displayName}" from inventory`,
+                timestamp: Date.now(),
+                originalQuantity: qty,
+                originalUnit: unit
+            });
             
-            if (confirm(`Are you sure you want to delete "${displayName}" from inventory?`)) {
-                await push(ref(db, "admin_logs"), {
-                    date: new Date().toISOString(),
-                    admin: auth.currentUser?.email || "Unknown",
-                    action: "Delete",
-                    itemName: rawName,
-                    qty: 0,
-                    unit: itemData.unit || 'Pc',
-                    expiryDate: itemData.expiryDate || null,
-                    timestamp: Date.now()
-                });
-                
-                await remove(ref(db, `inventory/${id}`));
-                
-                showToast(`"${displayName}" deleted from inventory`, "success");
-            }
+            // Then delete the item
+            await remove(ref(db, `inventory/${id}`));
+            
+            showToast(`"${displayName}" (${qty} ${unit}) deleted from inventory`, "success");
+        }
         } catch (error) {
             showToast("Error deleting item: " + error.message, "error");
         } finally {
@@ -1558,6 +1682,20 @@ document.getElementById("saveBtn").onclick = async () => {
         showLoading(true);
         
         if (id) {
+            // Editing existing item - get current data first
+            const currentItemRef = ref(db, `inventory/${id}`);
+            const currentItemSnap = await get(currentItemRef);
+            const currentItemData = currentItemSnap.val();
+            
+            if (!currentItemData) {
+                showToast("Item not found for editing", "error");
+                return;
+            }
+            
+            const oldQty = parseFloat(currentItemData.quantity) || 0;
+            const oldUnit = currentItemData.unit || 'Pc';
+            const oldExpiry = currentItemData.expiryDate || null;
+            const oldName = currentItemData.name || '';
             const itemData = {
                 name,
                 quantity: qty,
@@ -1570,6 +1708,22 @@ document.getElementById("saveBtn").onclick = async () => {
             
             await update(ref(db, `inventory/${id}`), itemData);
             
+            // Log the edit with detailed changes
+            const changes = formatItemChanges(
+                { 
+                    name: oldName, 
+                    quantity: oldQty, 
+                    unit: oldUnit, 
+                    expiryDate: oldExpiry 
+                },
+                { 
+                    name, 
+                    quantity: qty, 
+                    unit: unit, 
+                    expiryDate: expiryDate 
+                }
+            );
+            
             await push(ref(db, "admin_logs"), {
                 date: new Date().toISOString(),
                 admin: auth.currentUser.email,
@@ -1578,7 +1732,11 @@ document.getElementById("saveBtn").onclick = async () => {
                 qty: qty,
                 unit: unit,
                 expiryDate: expiryDate || null,
-                timestamp: Date.now()
+                detail: changes === 'No significant changes' ? 'Item details updated' : changes,
+                timestamp: Date.now(),
+                originalQuantity: oldQty,
+                originalUnit: oldUnit,
+                originalExpiry: oldExpiry
             });
             
             ["editItemId", "itemName", "itemQty", "itemExpiry", "itemUnit"].forEach(i => {
@@ -1589,8 +1747,58 @@ document.getElementById("saveBtn").onclick = async () => {
             showToast("Inventory Updated Successfully!", "success");
             
         } else {
-            pendingItemData = { name, qty, expiryDate, unit };
-            document.getElementById("categoryModal").style.display = "flex";
+            // Adding new item - check for duplicates with same name AND expiry
+            const itemsRef = ref(db, "inventory");
+            const snapshot = await get(itemsRef);
+            const existingItems = snapshot.val() || {};
+            
+            let existingItemKey = null;
+            let exactMatch = false;
+            
+            // Check for exact match including expiry date
+            Object.keys(existingItems).forEach(key => {
+                const existingItem = existingItems[key];
+                const sameName = existingItem.name.toLowerCase() === name.toLowerCase();
+                const sameExpiry = (!existingItem.expiryDate && !expiryDate) || 
+                                 (existingItem.expiryDate === expiryDate);
+                
+                if (sameName && sameExpiry) {
+                    existingItemKey = key;
+                    exactMatch = true;
+                }
+            });
+            
+            if (existingItemKey && exactMatch) {
+                // Update existing item (same name AND same expiry)
+                const existingItem = existingItems[existingItemKey];
+                const oldQty = existingItem.quantity || 0;
+                const newQuantity = oldQty + qty;
+                
+                await update(ref(db, `inventory/${existingItemKey}`), {
+                    quantity: newQuantity
+                });
+                
+                // Log the quantity update
+                await push(ref(db, "admin_logs"), {
+                    date: new Date().toISOString(),
+                    admin: auth.currentUser.email,
+                    action: "Update Quantity",
+                    itemName: existingItem.name,
+                    qty: qty,
+                    unit: unit,
+                    expiryDate: existingItem.expiryDate || null,
+                    detail: `Added ${qty} ${unit} to existing item "${name}" (${oldQty} → ${newQuantity})`,
+                    timestamp: Date.now(),
+                    originalQuantity: oldQty
+                });
+                
+                showToast(`Added ${qty} more to existing item "${name}"`, "success");
+                
+            } else {
+                // Different name OR different expiry - show category modal
+                pendingItemData = { name, qty, expiryDate, unit };
+                document.getElementById("categoryModal").style.display = "flex";
+            }
         }
         
     } catch (error) {
@@ -1633,6 +1841,7 @@ async function finalizeAddition(category) {
         
         await update(ref(db, `inventory/${newKey}`), itemData);
         
+        // Log the addition
         await push(ref(db, "admin_logs"), {
             date: new Date().toISOString(),
             admin: auth.currentUser.email,
@@ -1641,6 +1850,8 @@ async function finalizeAddition(category) {
             qty: pendingItemData.qty,
             unit: pendingItemData.unit,
             expiryDate: pendingItemData.expiryDate || null,
+            category: category.toLowerCase(),
+            detail: `Added new ${category.toLowerCase()} item`,
             timestamp: Date.now()
         });
         
@@ -2185,452 +2396,276 @@ document.getElementById("saveManualRequestBtn").onclick = async () => {
     }
 };
 
-/* ================= EXCEL IMPORT FUNCTIONALITY ================= */
+/* ================= BULK IMPORT FUNCTIONALITY ================= */
 
-// File input change handler
-function handleFileSelect(event) {
-    const file = event.target.files[0];
-    if (!file) {
-        console.log("No file selected");
-        return;
-    }
-    
-    console.log("File selected:", file.name, file.size);
-    
-    const fileName = document.getElementById('fileName');
-    if (fileName) {
-        fileName.textContent = `Selected: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
-        fileName.style.color = '#3b82f6';
-        fileName.style.fontWeight = '500';
-    }
-    
-    // Validate file type
-    const validExtensions = ['.xlsx', '.xls', '.csv'];
-    const fileExt = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
-    
-    if (!validExtensions.includes(fileExt)) {
-        showToast(`Please select an Excel file (${validExtensions.join(', ')})`, 'error');
-        if (fileName) fileName.textContent = 'Invalid file type. Please select Excel file.';
-        return;
-    }
-    
-    // Clear previous data
-    excelData = [];
-    importItems = [];
-    
-    // Process the file
-    handleExcelFile(file);
-}
+// Additional modal setup for bulk import
+document.getElementById('closeBulkModal').onclick = () => {
+    document.getElementById('bulkImportModal').style.display = 'none';
+    document.body.classList.remove('modal-open');
+    resetBulkImport();
+};
 
-// Process import button
-document.getElementById('processImportBtn').onclick = processImport;
+document.getElementById('bulkImportModal').onclick = (e) => {
+    if (e.target === document.getElementById('bulkImportModal')) {
+        document.getElementById('bulkImportModal').style.display = 'none';
+        document.body.classList.remove('modal-open');
+        resetBulkImport();
+    }
+};
 
-async function handleExcelFile(file) {
-    try {
-        showLoading(true);
-        
-        const data = await file.arrayBuffer();
-        const workbook = XLSX.read(data, { type: 'array' });
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        
-        // Get the sheet data
-        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-        
-        console.log("Excel data loaded:", jsonData.length, "rows");
-        
-        // Check if data is empty
-        if (jsonData.length === 0 || (jsonData.length === 1 && jsonData[0].length === 0)) {
-            showToast('Excel file is empty or has no data', 'error');
-            return;
-        }
-        
-        // Determine if first row is header
-        const firstRow = jsonData[0] || [];
-        const firstCell = firstRow[0]?.toString().toLowerCase() || '';
-        
-        // Check if first row looks like a header
-        const isHeader = ['item', 'name', 'quantity', 'qty', 'unit', 'expiry', 'category'].some(
-            header => firstCell.includes(header)
-        );
-        
-        // Start from appropriate row
-        const startRow = isHeader ? 1 : 0;
-        excelData = [];
-        
-        // Process rows
-        for (let i = startRow; i < jsonData.length; i++) {
-            const row = jsonData[i];
-            if (!row || row.length === 0) continue;
-            
-            // Convert empty cells to undefined
-            const processedRow = [];
-            for (let j = 0; j < 5; j++) { // We expect up to 5 columns
-                processedRow[j] = (j < row.length && row[j] !== null && row[j] !== '') 
-                    ? row[j] 
-                    : undefined;
-            }
-            
-            // Only add if it has at least item name
-            if (processedRow[0]) {
-                excelData.push(processedRow);
-            }
-        }
-        
-        console.log("Processed data:", excelData);
-        
-        if (excelData.length === 0) {
-            showToast('No valid data found in Excel file. Please check the format.', 'error');
-            return;
-        }
-        
-        displayPreview();
-        
-    } catch (error) {
-        console.error("Excel parsing error:", error);
-        showToast('Error reading Excel file: ' + error.message, 'error');
-    } finally {
-        showLoading(false);
-    }
-}
-
-function validateImportRow(row, rowNum) {
-    const [name, quantity, unit, expiry, category] = row;
-    const rowIndex = rowNum + 2; // +2 for header row and 1-indexing
-    
-    // Check if this might be a header row
-    if (name && typeof name === 'string') {
-        const lowerName = name.toLowerCase();
-        if (lowerName.includes('item') || lowerName.includes('name') || 
-            lowerName.includes('quantity') || lowerName.includes('unit')) {
-            return { isValid: false, error: 'This appears to be a header row. Remove headers or ensure first row has proper headers.' };
-        }
-    }
-    
-    // Check required fields
-    if (!name || name.toString().trim() === '') {
-        return { isValid: false, error: 'Item name is required' };
-    }
-    
-    // Check if quantity exists and is a valid number
-    if (quantity === undefined || quantity === null || quantity.toString().trim() === '') {
-        return { isValid: false, error: 'Quantity is required' };
-    }
-    
-    const qtyNum = parseFloat(quantity);
-    if (isNaN(qtyNum) || qtyNum < 0) {
-        return { isValid: false, error: 'Quantity must be a valid number (≥ 0)' };
-    }
-    
-    // Validate unit if provided
+// Validate units function
+function isValidUnit(unit) {
     const validUnits = ['Pc', 'Tablet', 'ml', 'Box', 'Bottle', 'Pack', 'Pair', 'Set', 'Vial', 'Tube', 'Can', 'Carton'];
-    if (unit && unit.toString().trim() !== '') {
-        const unitStr = unit.toString().trim();
-        if (!validUnits.includes(unitStr)) {
-            return { 
-                isValid: false, 
-                error: `Invalid unit "${unitStr}". Use: ${validUnits.join(', ')}` 
-            };
-        }
-    }
-    
-    // Validate category if provided
-    const validCategories = ['medkit', 'ppe'];
-    if (category && category.toString().trim() !== '') {
-        const categoryStr = category.toString().trim().toLowerCase();
-        if (!validCategories.includes(categoryStr)) {
-            return { 
-                isValid: false, 
-                error: `Category must be "Medkit" or "PPE" (found: "${category}")` 
-            };
-        }
-    }
-    
-    // Validate expiry date format if provided
-    if (expiry && expiry.toString().trim() !== '') {
-        const expiryStr = expiry.toString().trim();
-        
-        // Check basic format
-        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-        if (!dateRegex.test(expiryStr)) {
-            return { 
-                isValid: false, 
-                error: `Expiry date must be YYYY-MM-DD format (found: "${expiryStr}")` 
-            };
-        }
-        
-        // Parse date
-        const expiryDate = new Date(expiryStr);
-        if (isNaN(expiryDate.getTime())) {
-            return { 
-                isValid: false, 
-                error: `Invalid expiry date: "${expiryStr}"` 
-            };
-        }
-        
-        // Check if date is in the past (allow past dates for reporting)
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        if (expiryDate < today) {
-            return { 
-                isValid: true, // Still valid, but warning
-                error: 'Warning: Expiry date is in the past',
-                warning: true 
-            };
-        }
-    }
-    
-    return { isValid: true };
+    return validUnits.includes(unit);
 }
 
-function displayPreview() {
-    const previewTable = document.getElementById('previewTable');
-    const previewBody = document.getElementById('previewTableBody');
-    const processBtn = document.getElementById('processImportBtn');
+// Parse bulk items
+function parseBulkItems(text) {
+    const lines = text.split('\n').filter(line => line.trim() !== '');
+    const items = [];
     
-    if (!previewTable || !previewBody || !processBtn) {
-        console.error("Preview elements not found");
-        showToast('Preview elements not found', 'error');
-        return;
-    }
-    
-    previewBody.innerHTML = '';
-    
-    if (!excelData || excelData.length === 0) {
-        previewTable.style.display = 'none';
-        processBtn.disabled = true;
-        showToast('No data to preview', 'warning');
-        return;
-    }
-    
-    console.log("Displaying preview for", excelData.length, "rows");
-    
-    // Remove any existing count info
-    const existingCountInfo = previewTable.nextElementSibling;
-    if (existingCountInfo && existingCountInfo.textContent.includes('Found:')) {
-        existingCountInfo.remove();
-    }
-    
-    // Validate and prepare ALL data
-    importItems = [];
-    let validItems = 0;
-    let validationErrors = [];
-    
-    // Process ALL rows
-    excelData.forEach((row, index) => {
-        const [name, quantity, unit, expiry, category] = row;
-        const rowNum = index + 2; // +2 for header row and 1-indexing
+    lines.forEach((line, index) => {
+        const parts = line.split(',').map(part => part.trim());
         
-        const validation = validateImportRow(row, index);
-        const isValid = validation.isValid;
-        
-        if (isValid) {
-            importItems.push({
-                name: name.toString().trim(),
-                quantity: parseFloat(quantity),
-                unit: (unit || 'Pc').trim(),
-                expiryDate: expiry || '',
-                category: (category || 'Medkit').toLowerCase()
+        if (parts.length < 4) {
+            items.push({
+                line: index + 1,
+                raw: line,
+                valid: false,
+                error: 'Insufficient fields. Need at least: Name, Quantity, Unit, Category'
             });
-            validItems++;
-        } else {
-            validationErrors.push({
-                row: rowNum,
-                error: validation.error,
-                data: row
-            });
+            return;
         }
         
-        // Show ALL rows in preview
-        const tr = document.createElement('tr');
-        tr.className = isValid ? 'valid-row' : 'invalid-row';
+        const [name, quantity, unit, category, expiry] = parts;
         
-        // Create a more detailed error display
-        let errorDisplay = '';
-        if (!isValid) {
-            errorDisplay = `
-                <div class="error-message">
-                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24" style="flex-shrink: 0;">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-                    </svg>
-                    Row ${rowNum}: ${validation.error}
-                </div>
-            `;
+        // Basic validation
+        if (!name || name === '') {
+            items.push({
+                line: index + 1,
+                raw: line,
+                valid: false,
+                error: 'Item name is required'
+            });
+            return;
         }
         
-        tr.innerHTML = `
-            <td style="padding: 8px; border: 1px solid #e2e8f0; min-width: 200px;">
-                <div style="font-weight: ${!name ? 'normal' : '500'}">
-                    ${name || '<span style="color:#ef4444; font-weight:500;">Missing Name</span>'}
-                </div>
-                ${errorDisplay}
-            </td>
-            <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center; min-width: 80px;">
-                ${quantity || '<span style="color:#ef4444;">0</span>'}
-            </td>
-            <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center; min-width: 80px;">
-                ${unit || '<span style="color:#64748b; font-style:italic;">Pc</span>'}
-            </td>
-            <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center; min-width: 120px;">
-                ${expiry || '<span style="color:#64748b; font-style:italic;">-</span>'}
-            </td>
-            <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center; min-width: 100px;">
-                ${category || '<span style="color:#64748b; font-style:italic;">Medkit</span>'}
-            </td>
-        `;
+        const qtyNum = parseFloat(quantity);
+        if (isNaN(qtyNum) || qtyNum < 0) {
+            items.push({
+                line: index + 1,
+                raw: line,
+                valid: false,
+                error: 'Quantity must be a valid number (≥ 0)'
+            });
+            return;
+        }
         
-        previewBody.appendChild(tr);
+        const unitToUse = unit || 'Pc';
+        if (!isValidUnit(unitToUse)) {
+            items.push({
+                line: index + 1,
+                raw: line,
+                valid: false,
+                error: `Invalid unit "${unitToUse}". Use: Pc, Tablet, ml, Box, Bottle, Pack, Pair, Set, Vial, Tube, Can, Carton`
+            });
+            return;
+        }
+        
+        const categoryLower = (category || 'Medkit').toLowerCase();
+        if (!['medkit', 'ppe'].includes(categoryLower)) {
+            items.push({
+                line: index + 1,
+                raw: line,
+                valid: false,
+                error: 'Category must be "Medkit" or "PPE"'
+            });
+            return;
+        }
+        
+        let expiryDate = '';
+        let expiryError = '';
+        
+        if (expiry && expiry !== '') {
+            // Validate date format
+            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            if (!dateRegex.test(expiry)) {
+                expiryError = 'Date must be YYYY-MM-DD format';
+            } else {
+                const date = new Date(expiry);
+                if (isNaN(date.getTime())) {
+                    expiryError = 'Invalid date';
+                } else if (date < new Date() && categoryLower === 'medkit') {
+                    expiryError = 'Warning: Expiry date is in the past';
+                }
+                expiryDate = expiry;
+            }
+        }
+        
+        items.push({
+            line: index + 1,
+            raw: line,
+            name: name,
+            quantity: qtyNum,
+            unit: unitToUse,
+            category: categoryLower,
+            expiryDate: expiryDate,
+            valid: true,
+            error: expiryError,
+            warning: expiryError.includes('Warning')
+        });
     });
     
-    previewTable.style.display = 'block';
-    processBtn.disabled = validItems === 0;
+    return items;
+}
+
+// Validate bulk items
+document.getElementById('validateBulkBtn').onclick = function() {
+    const textarea = document.getElementById('bulkItemsTextarea');
+    const preview = document.getElementById('bulkPreview');
+    const previewContent = document.getElementById('bulkPreviewContent');
+    const importBtn = document.getElementById('importBulkBtn');
+    const errorDiv = document.getElementById('bulkError');
     
-    // Show count and validation summary
-    const countInfo = document.createElement('div');
-    countInfo.style.cssText = 'padding: 15px; background: #f8fafc; border-radius: 8px; margin: 15px 0; font-size: 0.9rem;';
+    if (!textarea || !preview || !previewContent) return;
     
-    let summaryHTML = `
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 10px;">
-            <div style="text-align: center; padding: 10px; background: white; border-radius: 6px; border: 2px solid #e2e8f0;">
-                <div style="font-size: 1.2rem; font-weight: 600; color: #1e293b;">${excelData.length}</div>
-                <div style="color: #64748b; font-size: 0.8rem;">Total Rows</div>
+    const text = textarea.value.trim();
+    if (!text) {
+        errorDiv.textContent = 'Please enter some items';
+        errorDiv.style.display = 'block';
+        preview.style.display = 'none';
+        importBtn.disabled = true;
+        return;
+    }
+    
+    const items = parseBulkItems(text);
+    
+    if (items.length === 0) {
+        errorDiv.textContent = 'No valid items found';
+        errorDiv.style.display = 'block';
+        preview.style.display = 'none';
+        importBtn.disabled = true;
+        return;
+    }
+    
+    // Calculate stats
+    const validItems = items.filter(item => item.valid);
+    const invalidItems = items.filter(item => !item.valid);
+    const warningItems = items.filter(item => item.warning);
+    
+    // Clear previous preview
+    previewContent.innerHTML = '';
+    
+    // Add stats
+    const statsHTML = `
+        <div class="bulk-stats">
+            <div class="bulk-stat">
+                <div class="count total">${items.length}</div>
+                <div class="label">Total Items</div>
             </div>
-            <div style="text-align: center; padding: 10px; background: rgba(34, 197, 94, 0.1); border-radius: 6px; border: 2px solid #22c55e;">
-                <div style="font-size: 1.2rem; font-weight: 600; color: #16a34a;">${validItems}</div>
-                <div style="color: #22c55e; font-size: 0.8rem;">Valid Rows</div>
+            <div class="bulk-stat">
+                <div class="count valid">${validItems.length}</div>
+                <div class="label">Valid Items</div>
             </div>
-            <div style="text-align: center; padding: 10px; background: rgba(239, 68, 68, 0.1); border-radius: 6px; border: 2px solid #ef4444;">
-                <div style="font-size: 1.2rem; font-weight: 600; color: #dc2626;">${excelData.length - validItems}</div>
-                <div style="color: #ef4444; font-size: 0.8rem;">Invalid Rows</div>
+            <div class="bulk-stat">
+                <div class="count invalid">${invalidItems.length}</div>
+                <div class="label">Invalid Items</div>
             </div>
         </div>
     `;
+    previewContent.innerHTML = statsHTML;
     
-    // Show validation errors if any
-    if (validationErrors.length > 0) {
-        summaryHTML += `
-            <div style="margin-top: 15px; padding: 12px; background: rgba(239, 68, 68, 0.05); border-radius: 6px; border-left: 4px solid #ef4444;">
-                <div style="font-weight: 600; color: #dc2626; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-                    </svg>
-                    Validation Issues Found:
-                </div>
-                <div style="max-height: 200px; overflow-y: auto;">
-        `;
+    // Add items preview (show first 10 only)
+    const itemsToShow = items.slice(0, 10);
+    itemsToShow.forEach(item => {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = `bulk-preview-item ${item.valid ? (item.warning ? 'warning' : '') : 'invalid'}`;
         
-        // Show first 10 errors only
-        validationErrors.slice(0, 10).forEach(error => {
-            const rowData = error.data.slice(0, 3).join(' | ');
-            summaryHTML += `
-                <div style="font-size: 0.85rem; padding: 4px 0; border-bottom: 1px solid rgba(239, 68, 68, 0.1);">
-                    <span style="font-weight: 500;">Row ${error.row}:</span> ${error.error}
-                    <div style="color: #64748b; font-size: 0.8rem; margin-left: 10px;">${rowData}</div>
-                </div>
-            `;
-        });
+        let status = item.valid ? (item.warning ? '⚠️' : '✅') : '❌';
+        let details = '';
         
-        if (validationErrors.length > 10) {
-            summaryHTML += `
-                <div style="color: #64748b; font-size: 0.8rem; padding: 8px; text-align: center;">
-                    ...and ${validationErrors.length - 10} more errors
+        if (item.valid) {
+            details = `
+                <div class="bulk-item-details">
+                    <span class="bulk-item-detail">${item.quantity} ${item.unit}</span>
+                    <span class="bulk-item-detail category-${item.category}">${item.category.toUpperCase()}</span>
+                    ${item.expiryDate ? `<span class="bulk-item-detail">Exp: ${item.expiryDate}</span>` : ''}
                 </div>
             `;
         }
         
-        summaryHTML += `
+        itemDiv.innerHTML = `
+            <div style="display: flex; align-items: flex-start; gap: 8px;">
+                <span style="flex-shrink: 0;">${status}</span>
+                <div style="flex: 1;">
+                    <strong>${item.name}</strong>
+                    <div style="color: #64748b; font-size: 0.8rem; margin-top: 2px;">
+                        ${item.error || 'Ready to import'}
+                    </div>
+                    ${details}
                 </div>
             </div>
         `;
+        previewContent.appendChild(itemDiv);
+    });
+    
+    if (items.length > 10) {
+        const moreDiv = document.createElement('div');
+        moreDiv.style.cssText = 'text-align: center; color: #64748b; font-size: 0.85rem; padding: 10px;';
+        moreDiv.textContent = `...and ${items.length - 10} more items`;
+        previewContent.appendChild(moreDiv);
     }
     
-    // Instructions for fixing
-    if (validItems === 0 && excelData.length > 0) {
-        summaryHTML += `
-            <div style="margin-top: 15px; padding: 12px; background: rgba(245, 158, 11, 0.1); border-radius: 6px; border-left: 4px solid #f59e0b;">
-                <div style="font-weight: 600; color: #d97706; margin-bottom: 8px;">💡 Tips to Fix:</div>
-                <ul style="margin: 0; padding-left: 20px; color: #64748b; font-size: 0.85rem;">
-                    <li>Ensure first row has headers: <code>Item Name, Quantity, Unit, Expiry Date, Category</code></li>
-                    <li>Check date format: Use <code>YYYY-MM-DD</code> (e.g., 2024-12-31)</li>
-                    <li>Category must be <code>Medkit</code> or <code>PPE</code></li>
-                    <li>Unit must be from: <code>Pc, Tablet, ml, Box, Bottle, Pack, Pair, Set, Vial, Tube, Can, Carton</code></li>
-                    <li>Quantity must be a number (e.g., 100, 50.5 for ml)</li>
-                </ul>
-            </div>
-        `;
-    }
+    // Update UI
+    errorDiv.style.display = 'none';
+    preview.style.display = 'block';
+    importBtn.disabled = validItems.length === 0;
     
-    countInfo.innerHTML = summaryHTML;
-    previewTable.parentNode.insertBefore(countInfo, previewTable);
-    
-    // Enable/disable import button with clear message
-    if (validItems > 0) {
-        processBtn.disabled = false;
-        processBtn.innerHTML = `
-            <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" style="margin-right: 8px;">
-                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-            </svg>
-            Import ${validItems} Valid Items
-        `;
-    } else {
-        processBtn.disabled = true;
-        processBtn.innerHTML = `
-            <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" style="margin-right: 8px;">
-                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-            </svg>
-            No Valid Items to Import
-        `;
-    }
-    
-    // Make table scrollable if too many rows
-    if (excelData.length > 10) {
-        previewTable.style.maxHeight = '400px';
-        previewTable.style.overflowY = 'auto';
-        previewTable.style.display = 'block';
-    }
-}
+    // Store items for import
+    window.bulkItemsToImport = items.filter(item => item.valid);
+};
 
-async function processImport() {
-    console.log("Starting import with", importItems?.length, "items");
+// Clear bulk items
+document.getElementById('clearBulkBtn').onclick = function() {
+    document.getElementById('bulkItemsTextarea').value = '';
+    document.getElementById('bulkPreview').style.display = 'none';
+    document.getElementById('bulkError').style.display = 'none';
+    document.getElementById('importBulkBtn').disabled = true;
+    window.bulkItemsToImport = [];
+};
+
+// Import bulk items
+document.getElementById('importBulkBtn').onclick = async function() {
+    const items = window.bulkItemsToImport;
+    if (!items || items.length === 0) return;
     
-    if (!importItems || importItems.length === 0) {
-        showToast('No valid items to import', 'error');
-        console.error("No import items available");
-        return;
-    }
+    const progressDiv = document.getElementById('bulkProgress');
+    const progressBar = document.getElementById('bulkProgressBar');
+    const progressPercent = document.getElementById('bulkProgressPercent');
+    const statusDiv = document.getElementById('bulkStatus');
+    const importBtn = document.getElementById('importBulkBtn');
+    const validateBtn = document.getElementById('validateBulkBtn');
     
-    const progressDiv = document.getElementById('importProgress');
-    const progressBar = document.getElementById('progressBar');
-    const progressPercent = document.getElementById('progressPercent');
-    const importStatus = document.getElementById('importStatus');
-    const processBtn = document.getElementById('processImportBtn');
-    
-    if (!progressDiv || !progressBar || !processBtn) {
-        console.error("Import UI elements not found");
-        showToast('Import UI elements not found', 'error');
-        return;
-    }
-    
-    console.log("Processing", importItems.length, "items");
-    
-    processBtn.disabled = true;
     progressDiv.style.display = 'block';
+    importBtn.disabled = true;
+    validateBtn.disabled = true;
     
     let successCount = 0;
     let errorCount = 0;
     let updatedCount = 0;
     let addedCount = 0;
     
-    for (let i = 0; i < importItems.length; i++) {
-        const item = importItems[i];
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
         
         // Update progress
-        const progress = Math.round(((i + 1) / importItems.length) * 100);
+        const progress = Math.round(((i + 1) / items.length) * 100);
         progressBar.style.width = `${progress}%`;
         progressPercent.textContent = `${progress}%`;
-        importStatus.textContent = `Processing item ${i + 1} of ${importItems.length}: ${item.name}`;
+        statusDiv.textContent = `Processing item ${i + 1} of ${items.length}: ${item.name}`;
         
         try {
-            // Check if item already exists by exact name match (case insensitive)
+            // Check if item already exists with EXACT same name AND expiry date
             const itemsRef = ref(db, "inventory");
             const snapshot = await get(itemsRef);
             const existingItems = snapshot.val() || {};
@@ -2638,29 +2673,48 @@ async function processImport() {
             let existingItemKey = null;
             let exactMatch = false;
             
+            // Check for exact match including expiry date
             Object.keys(existingItems).forEach(key => {
                 const existingItem = existingItems[key];
-                // Exact match check (case insensitive)
-                if (existingItem.name.toLowerCase() === item.name.toLowerCase()) {
+                const sameName = existingItem.name.toLowerCase() === item.name.toLowerCase();
+                const sameExpiry = (!existingItem.expiryDate && !item.expiryDate) || 
+                                 (existingItem.expiryDate === item.expiryDate);
+                
+                // Only consider it the same item if BOTH name AND expiry date match
+                if (sameName && sameExpiry) {
                     existingItemKey = key;
                     exactMatch = true;
                 }
             });
             
             if (existingItemKey && exactMatch) {
-                // UPDATED: Only add quantity, don't change expiry date or other properties
+                // Update existing item (same name AND same expiry)
                 const existingItem = existingItems[existingItemKey];
-                const newQuantity = (existingItem.quantity || 0) + item.quantity;
+                const oldQty = existingItem.quantity || 0;
+                const newQuantity = oldQty + item.quantity;
                 
                 await update(ref(db, `inventory/${existingItemKey}`), {
                     quantity: newQuantity
-                    // Only update quantity, leave all other fields unchanged
+                });
+                
+                // Log the bulk quantity update
+                await push(ref(db, "admin_logs"), {
+                    date: new Date().toISOString(),
+                    admin: auth.currentUser?.email || "Unknown",
+                    action: "Update Quantity",
+                    itemName: existingItem.name,
+                    qty: item.quantity,
+                    unit: item.unit,
+                    expiryDate: existingItem.expiryDate || null,
+                    detail: `Bulk import: Added ${item.quantity} ${item.unit} to existing item "${item.name}" (${oldQty} → ${newQuantity})`,
+                    timestamp: Date.now(),
+                    originalQuantity: oldQty
                 });
                 
                 updatedCount++;
                 successCount++;
             } else {
-                // Add new item
+                // Add as new item (either different name OR different expiry)
                 const newKey = push(ref(db, "inventory")).key;
                 
                 const finalName = item.category === 'ppe' && !item.name.toLowerCase().includes('(ppe)') 
@@ -2681,6 +2735,20 @@ async function processImport() {
                 
                 await update(ref(db, `inventory/${newKey}`), itemData);
                 
+                // Log the bulk addition
+                await push(ref(db, "admin_logs"), {
+                    date: new Date().toISOString(),
+                    admin: auth.currentUser?.email || "Unknown",
+                    action: "Add",
+                    itemName: finalName,
+                    qty: item.quantity,
+                    unit: item.unit,
+                    expiryDate: item.expiryDate || null,
+                    category: item.category,
+                    detail: `Bulk import: Added new ${item.category} item "${item.name}"`,
+                    timestamp: Date.now()
+                });
+                
                 addedCount++;
                 successCount++;
             }
@@ -2690,11 +2758,11 @@ async function processImport() {
             errorCount++;
         }
         
-        // Small delay to prevent overwhelming Firebase
+        // Small delay
         await new Promise(resolve => setTimeout(resolve, 100));
     }
     
-    // UPDATED: Create a single summary log entry instead of logging each item
+    // Log the import
     if (successCount > 0) {
         try {
             await push(ref(db, "admin_logs"), {
@@ -2704,17 +2772,17 @@ async function processImport() {
                 itemName: `${addedCount} new items added, ${updatedCount} items updated`,
                 qty: successCount,
                 unit: "items",
-                detail: `Excel import completed: ${addedCount} new items added, ${updatedCount} existing items updated, ${errorCount} errors`,
+                detail: `Bulk import completed: ${addedCount} new items added (including same name with different expiry), ${updatedCount} existing items updated, ${errorCount} errors`,
                 timestamp: Date.now(),
                 importSummary: {
                     added: addedCount,
                     updated: updatedCount,
                     errors: errorCount,
-                    total: importItems.length
+                    total: items.length
                 }
             });
         } catch (error) {
-            console.error("Error logging import summary:", error);
+            console.error("Error logging import:", error);
         }
     }
     
@@ -2728,129 +2796,55 @@ async function processImport() {
     if (updatedCount > 0) results.push(`🔄 ${updatedCount} existing items updated`);
     if (errorCount > 0) results.push(`❌ ${errorCount} items failed`);
     
-    importStatus.innerHTML = `<strong>Import Complete!</strong><br>${results.join('<br>')}`;
+    statusDiv.innerHTML = `<strong>Import Complete!</strong><br>${results.join('<br>')}`;
     
-    // UPDATED: Force refresh after import
+    // Force refresh after import
     setTimeout(async () => {
         try {
-            // Force refresh the inventory data
             const inventoryRef = ref(db, "inventory");
             const snapshot = await get(inventoryRef);
             inventoryData = snapshot.val() || {};
             
-            // Update all UI components that depend on inventory
             updateInventoryDisplay();
             updateRequestItemOptions();
             checkExpiringItems(inventoryData);
             updateLowStockItems();
             
-            // Show success message
-            showToast(`Excel import complete: ${addedCount} added, ${updatedCount} updated, ${errorCount} errors`, 'success');
+            showToast(`Bulk import complete: ${addedCount} added, ${updatedCount} updated, ${errorCount} errors`, 'success');
             
         } catch (error) {
             console.error("Error refreshing after import:", error);
             showToast(`Import completed but refresh failed: ${error.message}`, 'warning');
         } finally {
             // Reset and close modal
-            resetImportModal();
-            document.getElementById('excelImportModal').style.display = 'none';
-            document.body.classList.remove('modal-open');
-            
-            // Reload reports to show the summary log
-            loadReports();
+            setTimeout(() => {
+                document.getElementById('bulkImportModal').style.display = 'none';
+                document.body.classList.remove('modal-open');
+                resetBulkImport();
+                
+                // Reload reports
+                loadReports();
+            }, 2000);
         }
-    }, 1500);
-}
+    }, 1000);
+};
 
-function resetImportModal() {
-    excelData = [];
-    importItems = [];
+// Reset bulk import
+function resetBulkImport() {
+    document.getElementById('bulkItemsTextarea').value = '';
+    document.getElementById('bulkPreview').style.display = 'none';
+    document.getElementById('bulkError').style.display = 'none';
+    document.getElementById('bulkProgress').style.display = 'none';
+    document.getElementById('bulkProgressBar').style.width = '0%';
+    document.getElementById('bulkProgressPercent').textContent = '0%';
+    document.getElementById('bulkStatus').textContent = '';
     
-    document.getElementById('previewTable').style.display = 'none';
-    document.getElementById('previewTableBody').innerHTML = '';
-    document.getElementById('fileName').textContent = '';
-    document.getElementById('excelFileInput').value = '';
-    document.getElementById('processImportBtn').disabled = true;
+    const importBtn = document.getElementById('importBulkBtn');
+    const validateBtn = document.getElementById('validateBulkBtn');
+    if (importBtn) importBtn.disabled = true;
+    if (validateBtn) validateBtn.disabled = false;
     
-    const progressDiv = document.getElementById('importProgress');
-    if (progressDiv) {
-        progressDiv.style.display = 'none';
-        document.getElementById('progressBar').style.width = '0%';
-        document.getElementById('progressPercent').textContent = '0%';
-        document.getElementById('importStatus').textContent = '';
-    }
-    
-    // Remove any count info divs
-    const countInfos = document.querySelectorAll('#excelImportModal .modal-content > div');
-    countInfos.forEach(div => {
-        if (div.style.cssText.includes('padding: 15px') || 
-            div.style.cssText.includes('background: #f8fafc') ||
-            div.id !== 'importProgress') {
-            div.remove();
-        }
-    });
-    
-    // Clear file input completely
-    const fileInput = document.getElementById('excelFileInput');
-    if (fileInput) {
-        fileInput.value = '';
-        // Trigger change event to ensure clean state
-        fileInput.dispatchEvent(new Event('change'));
-    }
-}
-
-// Drag and drop functionality
-const modalContent = document.querySelector('#excelImportModal .modal-content');
-if (modalContent) {
-    modalContent.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        modalContent.style.borderColor = '#3b82f6';
-        modalContent.style.background = 'rgba(59, 130, 246, 0.05)';
-    });
-
-    modalContent.addEventListener('dragleave', (e) => {
-        modalContent.style.borderColor = '';
-        modalContent.style.background = '';
-    });
-
-    modalContent.addEventListener('drop', (e) => {
-        e.preventDefault();
-        modalContent.style.borderColor = '';
-        modalContent.style.background = '';
-        
-        const files = e.dataTransfer.files;
-        if (files.length > 0 && (files[0].name.endsWith('.xlsx') || files[0].name.endsWith('.xls') || files[0].name.endsWith('.csv'))) {
-            handleExcelFile(files[0]);
-        }
-    });
-}
-
-// Download template function
-function downloadTemplate() {
-    const templateData = [
-        ['Item Name', 'Quantity', 'Unit', 'Expiry Date', 'Category'],
-        ['Paracetamol 500mg', '100', 'Tablet', '2024-12-31', 'Medkit'],
-        ['Surgical Masks', '500', 'Pc', '', 'PPE'],
-        ['Hand Sanitizer', '50', 'ml', '2024-10-15', 'Medkit'],
-        ['Nitrile Gloves', '200', 'Pair', '', 'PPE'],
-        ['Bandages', '150', 'Pc', '2025-06-30', 'Medkit']
-    ];
-    
-    const ws = XLSX.utils.aoa_to_sheet(templateData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Template');
-    
-    // Auto-size columns
-    const wscols = [
-        {wch: 25}, // Item Name
-        {wch: 10}, // Quantity
-        {wch: 10}, // Unit
-        {wch: 12}, // Expiry Date
-        {wch: 10}  // Category
-    ];
-    ws['!cols'] = wscols;
-    
-    XLSX.writeFile(wb, 'Inventory_Template.xlsx');
+    window.bulkItemsToImport = [];
 }
 
 /* ================= STOCK EXPORT FUNCTION ================= */
@@ -3077,40 +3071,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById("itemUnit").dispatchEvent(new Event('change'));
   }
   
-  // Excel import setup
-  const excelFileInput = document.getElementById('excelFileInput');
-  const chooseFileLabel = document.querySelector('label[for="excelFileInput"]');
-  
-  if (excelFileInput && chooseFileLabel) {
-      // Make sure the label triggers the file input
-      chooseFileLabel.onclick = (e) => {
-          e.preventDefault();
-          excelFileInput.click();
-      };
-      
-      excelFileInput.onchange = (e) => {
-          handleFileSelect(e);
-      };
-  }
-  
-  // Add template download button to modal
-  const importModalContent = document.querySelector('#excelImportModal .modal-content');
-  const formatDiv = importModalContent?.querySelector('div[style*="Excel Format Requirements"]');
-  
-  if (formatDiv) {
-      const templateBtn = document.createElement('button');
-      templateBtn.className = 'btn-text';
-      templateBtn.innerHTML = `
-          <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" style="margin-right: 6px;">
-              <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
-          </svg>
-          Download Template
-      `;
-      templateBtn.onclick = downloadTemplate;
-      templateBtn.style.marginTop = '10px';
-      
-      formatDiv.appendChild(templateBtn);
-  }
+  // Initialize bulk import
+  initBulkImport();
   
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
@@ -3140,27 +3102,60 @@ document.addEventListener('DOMContentLoaded', () => {
     showToast("You are offline. Some features may be limited.", "warning");
   });
   
-  // Excel import modal close handler
-  const excelModal = document.getElementById('excelImportModal');
-  const cancelImportBtn = document.getElementById('cancelImportBtn');
-  
-  if (cancelImportBtn) {
-    cancelImportBtn.onclick = () => {
-        resetImportModal();
-        excelModal.style.display = 'none';
-        document.body.classList.remove('modal-open');
-    };
-  }
-  
-  if (excelModal) {
-    excelModal.onclick = (e) => {
-        if (e.target === excelModal) {
-            resetImportModal();
-            excelModal.style.display = 'none';
-            document.body.classList.remove('modal-open');
-        }
-    };
-  }
-  
-  console.log("Medical Inventory System with Excel Import initialized successfully");
+  console.log("Medical Inventory System with Admin Logging initialized successfully");
 });
+
+// Initialize bulk import
+function initBulkImport() {
+    // Add sample data button
+    const sampleBtn = document.createElement('button');
+    sampleBtn.className = 'btn-text';
+    sampleBtn.innerHTML = `
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" style="margin-right: 6px;">
+            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+        </svg>
+        Load Sample
+    `;
+    sampleBtn.style.cssText = 'margin-left: 10px; padding: 8px 16px; font-size: 14px;';
+    sampleBtn.onclick = function() {
+        const sampleData = `Paracetamol 500mg, 100, Tablet, Medkit, 2024-12-31
+Surgical Masks, 500, Pc, PPE,
+Hand Sanitizer, 50, ml, Medkit, 2024-10-15
+Nitrile Gloves, 200, Pair, PPE,
+Bandages, 150, Pc, Medkit, 2025-06-30
+Antiseptic Wipes, 300, Pc, Medkit, 2024-09-30
+Face Shield, 100, Pc, PPE,
+Thermometer, 50, Pc, Medkit,
+Syringe 5ml, 500, Pc, Medkit, 2024-11-30
+Gauze Pads, 400, Pc, Medkit, 2025-03-15`;
+        
+        document.getElementById('bulkItemsTextarea').value = sampleData;
+    };
+    
+    const modalContent = document.querySelector('#bulkImportModal .modal-content');
+    const formatDiv = modalContent?.querySelector('div[style*="Format Instructions"]');
+    if (formatDiv) {
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = 'margin-top: 10px;';
+        buttonContainer.appendChild(sampleBtn);
+        formatDiv.appendChild(buttonContainer);
+    }
+    
+    // Auto-validate on paste
+    const textarea = document.getElementById('bulkItemsTextarea');
+    if (textarea) {
+        textarea.addEventListener('paste', function(e) {
+            setTimeout(() => {
+                document.getElementById('validateBulkBtn').click();
+            }, 100);
+        });
+        
+        textarea.addEventListener('input', function() {
+            if (this.value.trim() === '') {
+                document.getElementById('bulkPreview').style.display = 'none';
+                document.getElementById('bulkError').style.display = 'none';
+                document.getElementById('importBulkBtn').disabled = true;
+            }
+        });
+    }
+}
