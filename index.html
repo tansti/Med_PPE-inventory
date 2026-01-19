@@ -272,23 +272,23 @@ Hand Sanitizer, 50, ml, Medkit, 2024-10-15"
 </button>
         </section>
 
-       <section class="card">
-          <div class="card-header-flex">
-            <h2>📦 Current Stock</h2>
-            <div class="filter-buttons admin-only">
-              <button id="filterAllBtn" class="filter-btn filter-all active">All Items</button>
-              <button id="filterMedkitBtn" class="filter-btn filter-medkit">Medkit Only</button>
-              <button id="filterPPEBtn" class="filter-btn filter-ppe">PPE Only</button>
-            </div>
-            <div class="admin-only" style="display: flex; gap: 10px;">
-                <button id="downloadStockBtn" class="btn-success" style="padding: 8px 16px; font-size: 14px;">
-                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" style="margin-right: 6px;">
-                        <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
-                    </svg>
-                    Export
-                </button>
-            </div>
-          </div>
+       <section class="card admin-only"> <!-- Add admin-only class here -->
+  <div class="card-header-flex">
+    <h2>📦 Current Stock</h2>
+    <div class="filter-buttons admin-only">
+      <button id="filterAllBtn" class="filter-btn filter-all active">All Items</button>
+      <button id="filterMedkitBtn" class="filter-btn filter-medkit">Medkit Only</button>
+      <button id="filterPPEBtn" class="filter-btn filter-ppe">PPE Only</button>
+    </div>
+    <div class="admin-only" style="display: flex; gap: 10px;">
+        <button id="downloadStockBtn" class="btn-success" style="padding: 8px 16px; font-size: 14px;">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" style="margin-right: 6px;">
+                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+            </svg>
+            Export
+        </button>
+    </div>
+  </div>
           
           <div class="table-container" style="position: relative;">
             <div class="table-scroll" style="max-height: 500px; overflow-y: auto; overflow-x: auto;">
