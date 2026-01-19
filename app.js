@@ -3159,3 +3159,250 @@ Gauze Pads, 400, Pc, Medkit, 2025-03-15`;
         });
     }
 }
+
+/* ================= INACTIVITY TIMEOUT ================= */
+let idleTimeout;
+let logoutTimeout;
+const IDLE_WARNING_TIME = 1 * 60 * 1000; // 4 minutes (warning)
+const IDLE_LOGOUT_TIME = 2 * 60 * 1000; // 5 minutes (logout)
+
+function resetIdleTimer() {
+    clearTimeout(idleTimeout);
+    clearTimeout(logoutTimeout);
+    
+    if (auth.currentUser) {
+        // Set warning timeout (4 minutes)
+        idleTimeout = setTimeout(() => {
+            showIdleWarning();
+        }, IDLE_WARNING_TIME);
+        
+        // Set logout timeout (5 minutes)
+        logoutTimeout = setTimeout(() => {
+            autoLogout();
+        }, IDLE_LOGOUT_TIME);
+    }
+}
+
+function showIdleWarning() {
+    if (!auth.currentUser) return;
+    
+    // Check if a warning is already showing
+    if (document.getElementById('idleWarningToast')) return;
+    
+    const warningToast = document.createElement('div');
+    warningToast.id = 'idleWarningToast';
+    warningToast.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        color: white;
+        padding: 15px 20px;
+        border-radius: 10px;
+        box-shadow: 0 8px 25px rgba(245, 158, 11, 0.3);
+        z-index: 99999;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        animation: slideUp 0.3s ease;
+        max-width: 350px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    `;
+    
+    warningToast.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+            <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+            </svg>
+            <div style="flex: 1;">
+                <div style="font-weight: 600; margin-bottom: 4px;">Session Timeout Warning</div>
+                <div style="font-size: 14px; opacity: 0.9;">You will be logged out in 1 minute due to inactivity.</div>
+            </div>
+        </div>
+        <button id="extendSessionBtn" style="
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        ">Stay Logged In</button>
+    `;
+    
+    document.body.appendChild(warningToast);
+    
+    // Add slideUp animation if not already defined
+    if (!document.querySelector('#slideUpAnimation')) {
+        const style = document.createElement('style');
+        style.id = 'slideUpAnimation';
+        style.textContent = `
+            @keyframes slideUp {
+                from { transform: translateY(100%); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+            }
+            @keyframes slideDown {
+                from { transform: translateY(0); opacity: 1; }
+                to { transform: translateY(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    // Add event listener to extend button
+    document.getElementById('extendSessionBtn').onclick = () => {
+        resetIdleTimer();
+        warningToast.style.animation = 'slideDown 0.3s ease';
+        setTimeout(() => warningToast.remove(), 300);
+        showToast("Session extended", "success");
+    };
+}
+
+function autoLogout() {
+    if (!auth.currentUser) return;
+    
+    // Remove warning toast if exists
+    const warningToast = document.getElementById('idleWarningToast');
+    if (warningToast) {
+        warningToast.remove();
+    }
+    
+    // Show logout notification
+    showToast("Session timed out due to inactivity. You have been logged out.", "warning");
+    
+    // Perform logout
+    signOut(auth).then(() => {
+        // Reset states
+        isPPEMode = false;
+        currentStockFilter = 'medkit';
+        
+        document.body.classList.add("mode-medkit");
+        document.body.classList.remove("mode-ppe");
+        document.getElementById("formTitle").innerText = "💊 Medkit Request Form";
+        document.getElementById("toggleIcon").innerText = "🛡️";
+        
+        applyStockFilter();
+        
+        // Clear all timeouts
+        clearTimeout(idleTimeout);
+        clearTimeout(logoutTimeout);
+    }).catch(error => {
+        console.error("Error during auto-logout:", error);
+    });
+}
+
+// Reset timer on user activity
+function setupActivityListeners() {
+    // Mouse events
+    ['click', 'mousemove', 'mousedown', 'scroll'].forEach(event => {
+        document.addEventListener(event, resetIdleTimer, { passive: true });
+    });
+    
+    // Keyboard events
+    ['keypress', 'keydown'].forEach(event => {
+        document.addEventListener(event, resetIdleTimer, { passive: true });
+    });
+    
+    // Touch events for mobile
+    ['touchstart', 'touchmove'].forEach(event => {
+        document.addEventListener(event, resetIdleTimer, { passive: true });
+    });
+    
+    // Input events for form interactions
+    ['input', 'change', 'focus'].forEach(event => {
+        document.addEventListener(event, resetIdleTimer, { passive: true });
+    });
+}
+
+// Initialize idle timer when auth state changes
+onAuthStateChanged(auth, user => {
+    const isAdmin = !!user;
+    document.body.classList.toggle("is-admin", isAdmin);
+    
+    const logoutBtn = document.getElementById("logoutBtn");
+    if (logoutBtn) logoutBtn.style.display = isAdmin ? "block" : "none";
+    
+    const loginTrigger = document.getElementById("loginTrigger");
+    if (loginTrigger) loginTrigger.style.display = isAdmin ? "none" : "flex";
+    
+    const empTrigger = document.getElementById("employeeTrigger");
+    if (empTrigger) empTrigger.style.display = isAdmin ? "flex" : "none";
+    
+    const adminElements = document.querySelectorAll('.admin-only');
+    adminElements.forEach(el => {
+        if (isAdmin) {
+            if (el.style.display === 'none') {
+                el.style.display = '';
+            }
+        }
+    });
+    
+    const publicElements = document.querySelectorAll('.public-only');
+    publicElements.forEach(el => {
+        el.style.display = isAdmin ? 'none' : '';
+    });
+    
+    const filterButtons = document.querySelectorAll('.filter-buttons');
+    filterButtons.forEach(btn => {
+        if (btn) btn.style.display = isAdmin ? 'flex' : 'none';
+    });
+
+    if (!isAdmin) {
+        document.getElementById("adminEmail").value = "";
+        document.getElementById("adminPass").value = "";
+        document.getElementById("loginModal").style.display = "none";
+        
+        // Clear idle timer when not admin
+        clearTimeout(idleTimeout);
+        clearTimeout(logoutTimeout);
+        
+        // Remove warning toast if exists
+        const warningToast = document.getElementById('idleWarningToast');
+        if (warningToast) warningToast.remove();
+    } else {
+        // Start idle timer when admin logs in
+        setupActivityListeners();
+        resetIdleTimer();
+        
+        loadReports();
+        loadEmployees();
+        currentStockFilter = 'all';
+        updateStockFilterButtons();
+        applyStockFilter();
+        showToast(`Welcome back, ${user.email.split('@')[0]}!`, "success");
+    }
+    
+    if (!isAdmin) {
+        currentStockFilter = isPPEMode ? 'ppe' : 'medkit';
+        applyStockFilter();
+    }
+});
+
+// Also add this to the DOMContentLoaded event listener to ensure proper cleanup
+document.addEventListener('DOMContentLoaded', () => {
+    // ... existing initialization code ...
+    
+    // Clean up idle timer on page unload
+    window.addEventListener('beforeunload', () => {
+        clearTimeout(idleTimeout);
+        clearTimeout(logoutTimeout);
+    });
+    
+    // Clean up idle timer on manual logout
+    const originalLogout = document.getElementById("logoutBtn").onclick;
+    document.getElementById("logoutBtn").onclick = function() {
+        clearTimeout(idleTimeout);
+        clearTimeout(logoutTimeout);
+        
+        // Remove warning toast if exists
+        const warningToast = document.getElementById('idleWarningToast');
+        if (warningToast) warningToast.remove();
+        
+        // Call original logout function
+        if (originalLogout) originalLogout.call(this);
+    };
+});
